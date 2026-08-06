@@ -1,0 +1,6 @@
+@CMIS_IyaSoft_HostAddress = http://localhost:5261
+
+GET {{CMIS_IyaSoft_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
