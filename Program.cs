@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using CMIS_IyaSoft.Data;
+using CMIS_IyaSoft.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,7 +11,9 @@ builder.Services.AddSwaggerGen();
 
 // Register DbContext with SQLite connection string
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite("Data Source=minicmis.db"));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Register CMIS Business Service
+builder.Services.AddScoped<ICmisService, CmisService>();
 
 var app = builder.Build();
 
