@@ -8,10 +8,14 @@ public class CmisObject
     // "cmis:folder" or "cmis:document"
     public string TypeId { get; set; } = "cmis:document";
 
+    // Hierarchy Navigation
     public string? ParentId { get; set; }
+    public CmisObject? Parent { get; set; }
+    public ICollection<CmisObject> Children { get; set; } = new List<CmisObject>();
+
     public string Path { get; set; } = string.Empty;
 
-    // Document specific fields
+    // Document Specific Fields
     public byte[]? ContentStream { get; set; }
     public string? MimeType { get; set; }
     public long? ContentStreamLength { get; set; }
