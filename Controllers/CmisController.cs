@@ -81,4 +81,50 @@ public class CmisController : ControllerBase
 
         return Ok(cmisObject);
     }
+
+    // POST /browser/{repositoryId}/{folderId}
+    // Handles cmisaction=createDocument and cmisaction=createFolder
+    [HttpPost("{repositoryId}/{folderId}")]
+    public async Task<IActionResult> PostObject(
+        [FromRoute] string repositoryId,
+        [FromRoute] string folderId,
+        [FromForm] string cmisaction,
+        [FromForm] string? name,
+        IFormFile? file)
+    {
+        if (string.Equals(cmisaction, "createDocument", StringComparison.OrdinalIgnoreCase))
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { error = "File content is required for createDocument action." });
+            }
+
+            var docName = string.IsNullOrWhiteSpace(name) ? file.FileName : name;
+            using var memoryStream = new MemoryStream();
+            await file.CopyToAsync(memoryStream);
+            var fileBytes = memoryStream.ToArray();
+
+            var createdDoc = await _cmisService.CreateDocumentAsync(
+                folderId,
+                docName,
+                file.ContentType ?? "application/octet-stream",
+                fileBytes
+            );
+
+            return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdDoc.Id }, createdDoc);
+        }
+
+        if (string.Equals(cmisaction, "createFolder", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return BadRequest(new { error = "Folder name is required for createFolder action." });
+            }
+
+            var createdFolder = await _cmisService.CreateFolderAsync(folderId, name);
+            return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdFolder.Id }, createdFolder);
+        }
+
+        return BadRequest(new { error = $"Unsupported cmisaction '{cmisaction}'." });
+    }
 }

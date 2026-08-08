@@ -7,7 +7,9 @@ public interface ICmisService
     Task<IEnumerable<CmisType>> GetTypesAsync();
     Task<IEnumerable<CmisObject>> GetChildrenAsync(string folderId);
     Task<CmisObject?> GetObjectByIdAsync(string objectId);
-
-    // Add method to retrieve binary content stream
     Task<(byte[]? Content, string? MimeType, string Name)?> GetContentStreamAsync(string objectId);
+
+    // Write operations
+    Task<CmisObject> CreateDocumentAsync(string parentId, string name, string mimeType, byte[] content);
+    Task<CmisObject> CreateFolderAsync(string parentId, string name);
 }

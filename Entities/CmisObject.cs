@@ -1,4 +1,6 @@
-﻿namespace CMIS_IyaSoft.Entities;
+﻿using System.Text.Json.Serialization;
+
+namespace CMIS_IyaSoft.Entities;
 
 public class CmisObject
 {
@@ -10,7 +12,11 @@ public class CmisObject
 
     // Hierarchy Navigation
     public string? ParentId { get; set; }
+
+    [JsonIgnore] // Prevents JSON cycle loops!
     public CmisObject? Parent { get; set; }
+
+    [JsonIgnore] // Prevents JSON cycle loops!
     public ICollection<CmisObject> Children { get; set; } = new List<CmisObject>();
 
     public string Path { get; set; } = string.Empty;
