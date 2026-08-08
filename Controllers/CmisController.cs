@@ -4,54 +4,81 @@ using Microsoft.AspNetCore.Mvc;
 namespace CMIS_IyaSoft.Controllers;
 
 [ApiController]
-[Route("api/cmis")]
+[Route("browser")]
 public class CmisController : ControllerBase
 {
     private readonly ICmisService _cmisService;
 
-    // Injecting ICmisService via Constructor Injection
     public CmisController(ICmisService cmisService)
     {
         _cmisService = cmisService;
     }
 
-    // 1. Get Repository Info / Types
-    // GET: api/cmis/types
-    [HttpGet("types")]
-    public async Task<IActionResult> GetTypes()
+    // GET /browser
+    // Returns repository info or type definitions based on ?cmisselector
+    [HttpGet]
+    public async Task<IActionResult> GetRepository([FromQuery] string? cmisselector)
     {
-        var types = await _cmisService.GetTypesAsync();
-        return Ok(types);
+        if (string.Equals(cmisselector, "types", StringComparison.OrdinalIgnoreCase))
+        {
+            var types = await _cmisService.GetTypesAsync();
+            return Ok(new { typeDefinitions = types });
+        }
+
+        // Default Repository Info Response (CMIS 1.1 compliant)
+        var repoInfo = new
+        {
+            defaultInfo = new
+            {
+                repositoryId = "mini-cmis-repo",
+                repositoryName = "Mini CMIS Repository",
+                repositoryDescription = "IyaSoft Mini CMIS Engine",
+                vendorName = "IyaSoft",
+                productName = "MiniCMIS API",
+                productVersion = "1.0.0",
+                rootFolderId = "root-folder",
+                cmisVersionSupported = "1.1"
+            }
+        };
+
+        return Ok(repoInfo);
     }
 
-    // 2. Get Object by ID
-    // GET: api/cmis/objects/{id}
-    [HttpGet("objects/{id}")]
-    public async Task<IActionResult> GetObjectById(string id)
+    // GET /browser/{repositoryId}/root (or any path/object)
+    // Handles ?cmisselector=children and ?cmisselector=content
+    [HttpGet("{repositoryId}/{objectId}")]
+    public async Task<IActionResult> GetObject(
+        string repositoryId,
+        string objectId,
+        [FromQuery] string? cmisselector)
     {
-        var cmisObject = await _cmisService.GetObjectByIdAsync(id);
+        // 1. Selector: children -> list folder content
+        if (string.Equals(cmisselector, "children", StringComparison.OrdinalIgnoreCase))
+        {
+            var children = await _cmisService.GetChildrenAsync(objectId);
+            return Ok(new { objects = children });
+        }
 
+        // 2. Selector: content -> download binary stream
+        if (string.Equals(cmisselector, "content", StringComparison.OrdinalIgnoreCase))
+        {
+            var streamResult = await _cmisService.GetContentStreamAsync(objectId);
+            if (streamResult == null || streamResult.Value.Content == null)
+            {
+                return NotFound(new { error = "Content stream not found for this object." });
+            }
+
+            var (content, mimeType, fileName) = streamResult.Value;
+            return File(content, mimeType, fileName);
+        }
+
+        // 3. Default: return object metadata
+        var cmisObject = await _cmisService.GetObjectByIdAsync(objectId);
         if (cmisObject == null)
         {
-            return NotFound(new { error = "ObjectNotFound", message = $"Object with ID '{id}' was not found." });
+            return NotFound(new { error = $"Object with ID '{objectId}' was not found." });
         }
 
         return Ok(cmisObject);
-    }
-
-    // 3. Get Folder Children (CMIS Navigation)
-    // GET: api/cmis/objects/{id}/children
-    [HttpGet("objects/{id}/children")]
-    public async Task<IActionResult> GetChildren(string id)
-    {
-        // First check if parent folder exists
-        var folder = await _cmisService.GetObjectByIdAsync(id);
-        if (folder == null)
-        {
-            return NotFound(new { error = "ObjectNotFound", message = $"Folder with ID '{id}' was not found." });
-        }
-
-        var children = await _cmisService.GetChildrenAsync(id);
-        return Ok(children);
     }
 }
