@@ -100,4 +100,38 @@ public class CmisService : ICmisService
         await _context.SaveChangesAsync();
         return newFolder;
     }
+
+    public async Task<bool> DeleteObjectAsync(string objectId)
+    {
+        var cmisObj = await _context.Objects
+            .Include(o => o.Children)
+            .FirstOrDefaultAsync(o => o.Id == objectId);
+
+        if (cmisObj == null)
+        {
+            return false;
+        }
+
+        // If it's a folder with children, restrict deletion to keep hierarchy safe
+        if (cmisObj.TypeId == "cmis:folder" && cmisObj.Children.Any())
+        {
+            throw new InvalidOperationException("Cannot delete a folder that contains child objects. Delete the contents first.");
+        }
+
+        _context.Objects.Remove(cmisObj);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<IEnumerable<CmisObject>> SearchObjectsAsync(string searchTerm)
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            return Enumerable.Empty<CmisObject>();
+        }
+
+        return await _context.Objects
+            .Where(o => EF.Functions.Like(o.Name, $"%{searchTerm}%"))
+            .ToListAsync();
+    }
 }

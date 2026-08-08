@@ -12,4 +12,8 @@ public interface ICmisService
     // Write operations
     Task<CmisObject> CreateDocumentAsync(string parentId, string name, string mimeType, byte[] content);
     Task<CmisObject> CreateFolderAsync(string parentId, string name);
+
+    // Deletion & Search
+    Task<bool> DeleteObjectAsync(string objectId);
+    Task<IEnumerable<CmisObject>> SearchObjectsAsync(string searchTerm);
 }

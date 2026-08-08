@@ -15,9 +15,9 @@ public class CmisController : ControllerBase
     }
 
     // GET /browser
-    // Returns repository info or type definitions based on ?cmisselector
+    // Returns repository info, types list, or search results based on ?cmisselector
     [HttpGet]
-    public async Task<IActionResult> GetRepository([FromQuery] string? cmisselector)
+    public async Task<IActionResult> GetRepository([FromQuery] string? cmisselector, [FromQuery] string? q)
     {
         if (string.Equals(cmisselector, "types", StringComparison.OrdinalIgnoreCase))
         {
@@ -25,7 +25,18 @@ public class CmisController : ControllerBase
             return Ok(new { typeDefinitions = types });
         }
 
-        // Default Repository Info Response (CMIS 1.1 compliant)
+        if (string.Equals(cmisselector, "query", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(q))
+            {
+                return BadRequest(new { error = "Search query parameter 'q' is required for query selector." });
+            }
+
+            var results = await _cmisService.SearchObjectsAsync(q);
+            return Ok(new { results });
+        }
+
+        // Default Repository Info Response
         var repoInfo = new
         {
             defaultInfo = new
@@ -43,6 +54,7 @@ public class CmisController : ControllerBase
 
         return Ok(repoInfo);
     }
+
 
     // GET /browser/{repositoryId}/root (or any path/object)
     // Handles ?cmisselector=children and ?cmisselector=content
@@ -82,16 +94,34 @@ public class CmisController : ControllerBase
         return Ok(cmisObject);
     }
 
-    // POST /browser/{repositoryId}/{folderId}
-    // Handles cmisaction=createDocument and cmisaction=createFolder
-    [HttpPost("{repositoryId}/{folderId}")]
+    // POST /browser/{repositoryId}/{objectId}
+    // Handles createDocument, createFolder, and delete
+    [HttpPost("{repositoryId}/{objectId}")]
     public async Task<IActionResult> PostObject(
         [FromRoute] string repositoryId,
-        [FromRoute] string folderId,
+        [FromRoute] string objectId,
         [FromForm] string cmisaction,
         [FromForm] string? name,
         IFormFile? file)
     {
+        if (string.Equals(cmisaction, "delete", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var success = await _cmisService.DeleteObjectAsync(objectId);
+                if (!success)
+                {
+                    return NotFound(new { error = $"Object with ID '{objectId}' was not found." });
+                }
+
+                return NoContent(); // 204 No Content for successful deletion
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
         if (string.Equals(cmisaction, "createDocument", StringComparison.OrdinalIgnoreCase))
         {
             if (file == null || file.Length == 0)
@@ -104,14 +134,21 @@ public class CmisController : ControllerBase
             await file.CopyToAsync(memoryStream);
             var fileBytes = memoryStream.ToArray();
 
-            var createdDoc = await _cmisService.CreateDocumentAsync(
-                folderId,
-                docName,
-                file.ContentType ?? "application/octet-stream",
-                fileBytes
-            );
+            try
+            {
+                var createdDoc = await _cmisService.CreateDocumentAsync(
+                    objectId,
+                    docName,
+                    file.ContentType ?? "application/octet-stream",
+                    fileBytes
+                );
 
-            return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdDoc.Id }, createdDoc);
+                return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdDoc.Id }, createdDoc);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         if (string.Equals(cmisaction, "createFolder", StringComparison.OrdinalIgnoreCase))
@@ -121,10 +158,19 @@ public class CmisController : ControllerBase
                 return BadRequest(new { error = "Folder name is required for createFolder action." });
             }
 
-            var createdFolder = await _cmisService.CreateFolderAsync(folderId, name);
-            return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdFolder.Id }, createdFolder);
+            try
+            {
+                var createdFolder = await _cmisService.CreateFolderAsync(objectId, name);
+                return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdFolder.Id }, createdFolder);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         return BadRequest(new { error = $"Unsupported cmisaction '{cmisaction}'." });
     }
+
+
 }
