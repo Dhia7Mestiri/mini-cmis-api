@@ -17,7 +17,9 @@ public class CmisController : ControllerBase
     // GET /browser
     // Returns repository info, types list, or search results based on ?cmisselector
     [HttpGet]
-    public async Task<IActionResult> GetRepository([FromQuery] string? cmisselector, [FromQuery] string? q)
+    public async Task<IActionResult> GetRepository(
+        [FromQuery] string? cmisselector,
+        [FromQuery] string? q)
     {
         if (string.Equals(cmisselector, "types", StringComparison.OrdinalIgnoreCase))
         {
@@ -36,7 +38,7 @@ public class CmisController : ControllerBase
             return Ok(new { results });
         }
 
-        // Default Repository Info Response
+        // Default Repository Info Response (CMIS 1.1 Compliant)
         var repoInfo = new
         {
             defaultInfo = new
@@ -55,13 +57,12 @@ public class CmisController : ControllerBase
         return Ok(repoInfo);
     }
 
-
-    // GET /browser/{repositoryId}/root (or any path/object)
-    // Handles ?cmisselector=children and ?cmisselector=content
+    // GET /browser/{repositoryId}/{objectId}
+    // Handles ?cmisselector=children, ?cmisselector=content, or object metadata
     [HttpGet("{repositoryId}/{objectId}")]
     public async Task<IActionResult> GetObject(
-        string repositoryId,
-        string objectId,
+        [FromRoute] string repositoryId,
+        [FromRoute] string objectId,
         [FromQuery] string? cmisselector)
     {
         // 1. Selector: children -> list folder content
@@ -129,7 +130,10 @@ public class CmisController : ControllerBase
                 return BadRequest(new { error = "File content is required for createDocument action." });
             }
 
-            var docName = string.IsNullOrWhiteSpace(name) ? file.FileName : name;
+            var docName = string.IsNullOrWhiteSpace(name)
+                ? Path.GetFileName(file.FileName)
+                : name;
+
             using var memoryStream = new MemoryStream();
             await file.CopyToAsync(memoryStream);
             var fileBytes = memoryStream.ToArray();
@@ -171,6 +175,4 @@ public class CmisController : ControllerBase
 
         return BadRequest(new { error = $"Unsupported cmisaction '{cmisaction}'." });
     }
-
-
 }
