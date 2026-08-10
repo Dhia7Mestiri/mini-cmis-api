@@ -23,6 +23,21 @@ builder.Services.AddIdentityApiEndpoints<IdentityUser>()
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>();
 
+// 🔧 FIX: Suppress browser authentication modal popup for APIs
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
+    };
+});
+
 // ➕ Register CMIS Service for Dependency Injection
 builder.Services.AddScoped<ICmisService, CmisService>();
 
@@ -45,6 +60,7 @@ app.UseAuthorization();
 
 // Map built-in Identity endpoints (/auth/register, /auth/login)
 app.MapGroup("/auth").MapIdentityApi<IdentityUser>();
+
 app.MapHealthChecks("/health");
 app.MapControllers();
 
