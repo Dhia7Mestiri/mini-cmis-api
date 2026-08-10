@@ -1,2 +1,152 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMIS 1.1 Explorer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <div class="container py-4">
+        <header class="pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center">
+            <h1 class="h4">📁 CMIS 1.1 Explorer</h1>
+            <span id="health-badge" class="badge bg-secondary">Checking System Health...</span>
+        </header>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card mb-3 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">🔍 Search Repository</h5>
+                        <div class="input-group">
+                            <input type="text" id="searchInput" class="form-control" placeholder="Search files...">
+                            <button class="btn btn-outline-primary" onclick="searchObjects()">Search</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">➕ Create Folder</h5>
+                        <input type="text" id="folderName" class="form-control mb-3" placeholder="Folder Name">
+                        <button class="btn btn-success w-100" onclick="createFolder()">Create</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="m-0">Repository Objects</h5>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="loadChildren('root-folder')">Home</button>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group" id="objectList">
+                            <li class="list-group-item text-muted">Loading items...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const repoId = "mini-cmis-repo";
+
+        async function checkHealth() {
+            try {
+                const res = await fetch('/health');
+                const badge = document.getElementById('health-badge');
+                if (res.ok) {
+                    badge.className = 'badge bg-success';
+                    badge.innerText = 'System Operational';
+                } else {
+                    badge.className = 'badge bg-danger';
+                    badge.innerText = 'Unhealthy';
+                }
+            } catch {
+                document.getElementById('health-badge').className = 'badge bg-danger';
+                document.getElementById('health-badge').innerText = 'Offline';
+            }
+        }
+
+        async function loadChildren(folderId) {
+            const res = await fetch(`/browser/${repoId}/${folderId}?cmisselector=children`);
+            const data = await res.json();
+            const list = document.getElementById('objectList');
+            list.innerHTML = '';
+
+            if (!data.objects || data.objects.length === 0) {
+                list.innerHTML = '<li class="list-group-item text-muted">Folder is empty</li>';
+                return;
+            }
+
+            data.objects.forEach(item => {
+                const isFolder = item.typeId === 'cmis:folder';
+                const icon = isFolder ? '📁' : '📄';
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                
+                li.innerHTML = `
+                    <span>${icon} <strong>${item.name}</strong></span>
+                    <div>
+                        ${isFolder ? `<button class="btn btn-sm btn-info me-2" onclick="loadChildren('${item.id}')">Open</button>` : ''}
+                        ${!isFolder ? `<a href="/browser/${repoId}/${item.id}?cmisselector=content" class="btn btn-sm btn-primary me-2" target="_blank">Download</a>` : ''}
+                        <button class="btn btn-sm btn-danger" onclick="deleteObject('${item.id}', '${item.parentId}')">Delete</button>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        async function searchObjects() {
+            const query = document.getElementById('searchInput').value;
+            if (!query) return;
+            const res = await fetch(`/browser?cmisselector=query&q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            const list = document.getElementById('objectList');
+            list.innerHTML = '';
+
+            if (!data.results || data.results.length === 0) {
+                list.innerHTML = '<li class="list-group-item text-muted">No results found</li>';
+                return;
+            }
+
+            data.results.forEach(item => {
+                const icon = item.typeId === 'cmis:folder' ? '📁' : '📄';
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `<span>${icon} <strong>${item.name}</strong></span>`;
+                list.appendChild(li);
+            });
+        }
+
+        async function createFolder() {
+            const name = document.getElementById('folderName').value;
+            if (!name) return;
+            const formData = new FormData();
+            formData.append('cmisaction', 'createFolder');
+            formData.append('name', name);
+
+            const res = await fetch(`/browser/${repoId}/root-folder`, { method: 'POST', body: formData });
+            if (res.ok) {
+                document.getElementById('folderName').value = '';
+                loadChildren('root-folder');
+            }
+        }
+
+        async function deleteObject(id, parentId) {
+            const formData = new FormData();
+            formData.append('cmisaction', 'delete');
+
+            const res = await fetch(`/browser/${repoId}/${id}`, { method: 'POST', body: formData });
+            if (res.ok) {
+                loadChildren(parentId || 'root-folder');
+            }
+        }
+
+        checkHealth();
+        loadChildren('root-folder');
+    </script>
+</body>
+</html>

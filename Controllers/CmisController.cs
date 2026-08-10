@@ -1,4 +1,5 @@
 ﻿using CMIS_IyaSoft.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CMIS_IyaSoft.Controllers;
@@ -60,6 +61,7 @@ public class CmisController : ControllerBase
     // GET /browser/{repositoryId}/{objectId}
     // Handles ?cmisselector=children, ?cmisselector=content, or object metadata
     [HttpGet("{repositoryId}/{objectId}")]
+    [Authorize(Roles = "Admin,Manager,User")]
     public async Task<IActionResult> GetObject(
         [FromRoute] string repositoryId,
         [FromRoute] string objectId,
@@ -98,6 +100,7 @@ public class CmisController : ControllerBase
     // POST /browser/{repositoryId}/{objectId}
     // Handles createDocument, createFolder, and delete
     [HttpPost("{repositoryId}/{objectId}")]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> PostObject(
         [FromRoute] string repositoryId,
         [FromRoute] string objectId,
@@ -105,8 +108,14 @@ public class CmisController : ControllerBase
         [FromForm] string? name,
         IFormFile? file)
     {
+        // ⛔ Restrict Deletion to Admin Only
         if (string.Equals(cmisaction, "delete", StringComparison.OrdinalIgnoreCase))
         {
+            if (!User.IsInRole("Admin"))
+            {
+                return Forbid(); // Returns 403 Forbidden if a Manager tries to delete
+            }
+
             try
             {
                 var success = await _cmisService.DeleteObjectAsync(objectId);
@@ -123,6 +132,7 @@ public class CmisController : ControllerBase
             }
         }
 
+        // 🔓 Both Admin and Manager can create documents and folders
         if (string.Equals(cmisaction, "createDocument", StringComparison.OrdinalIgnoreCase))
         {
             if (file == null || file.Length == 0)

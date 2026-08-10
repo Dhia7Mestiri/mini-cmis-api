@@ -1,26 +1,15 @@
-﻿using Microsoft.EntityFrameworkCore;
-using CMIS_IyaSoft.Entities;
+﻿using CMIS_IyaSoft.Entities;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace CMIS_IyaSoft.Data;
 
-public class AppDbContext : DbContext
+public class AppDbContext : IdentityDbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
-    {
-    }
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-    public DbSet<CmisType> Types => Set<CmisType>();
-    public DbSet<CmisObject> Objects => Set<CmisObject>();
+    public DbSet<CmisObject> Objects { get; set; }
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
-
-        // Configure Self-Referencing Relationship
-        modelBuilder.Entity<CmisObject>()
-            .HasOne(o => o.Parent)
-            .WithMany(o => o.Children)
-            .HasForeignKey(o => o.ParentId)
-            .OnDelete(DeleteBehavior.Restrict);
-    }
+    // ➕ Ajoutez cette ligne pour les types CMIS :
+    public DbSet<CmisType> Types { get; set; }
 }
