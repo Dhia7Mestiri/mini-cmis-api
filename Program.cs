@@ -12,9 +12,16 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Database & Health Checks
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
+if (builder.Environment.IsProduction() || Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+}
+else
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+}
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();
 
@@ -75,18 +82,18 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     try
     {
-        var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
-        var masterConnStr = new SqlConnectionStringBuilder(connStr) { InitialCatalog = "master" }.ConnectionString;
-
-        using (var masterConn = new SqlConnection(masterConnStr))
-        {
-            masterConn.Open();
-            using var cmd = masterConn.CreateCommand();
-            cmd.CommandText = "IF DB_ID('CMIS_Db') IS NULL CREATE DATABASE CMIS_Db";
-            cmd.ExecuteNonQuery();
-        }
         var context = services.GetRequiredService<AppDbContext>();
-        context.Database.Migrate();
+
+        // EF Core will handle database and table creation automatically
+        if (app.Environment.IsProduction() || Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
+        {
+            await context.Database.EnsureCreatedAsync();
+        }
+        else
+        {
+            await context.Database.MigrateAsync();
+        }
+
         DbInitializer.Initialize(context);
         await DbSeeder.SeedRolesAndUsersAsync(services);
     }
