@@ -1,51 +1,64 @@
 ﻿using Microsoft.AspNetCore.Identity;
 
-namespace CMIS_IyaSoft.Data;
-
-public static class DbSeeder
+namespace CMIS_IyaSoft.Data
 {
-    public static async Task SeedRolesAndUsersAsync(IServiceProvider services)
+    public static class DbSeeder
     {
-        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-        var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
-
-        // 1. Define Roles
-        string[] roles = { "Admin", "Manager", "User" };
-
-        foreach (var role in roles)
+        public static async Task SeedRolesAndUsersAsync(IServiceProvider services)
         {
-            if (!await roleManager.RoleExistsAsync(role))
+            var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
+            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+            var configuration = services.GetRequiredService<IConfiguration>();
+
+            // 1. Ensure Roles Exist
+            string[] roles = { "Admin", "Manager", "User" };
+            foreach (var role in roles)
             {
-                await roleManager.CreateAsync(new IdentityRole(role));
-            }
-        }
-
-        // 2. Define Initial Demo Users
-        var seedUsers = new[]
-        {
-            new { Email = "admin@cmis.com", Password = "AdminPass123!", Role = "Admin" },
-            new { Email = "manager@cmis.com", Password = "ManagerPass123!", Role = "Manager" },
-            new { Email = "user@cmis.com", Password = "UserPass123!", Role = "User" }
-        };
-
-        foreach (var userDef in seedUsers)
-        {
-            var user = await userManager.FindByEmailAsync(userDef.Email);
-            if (user == null)
-            {
-                user = new IdentityUser
+                if (!await roleManager.RoleExistsAsync(role))
                 {
-                    UserName = userDef.Email,
-                    Email = userDef.Email,
-                    EmailConfirmed = true
-                };
-
-                var result = await userManager.CreateAsync(user, userDef.Password);
-                if (result.Succeeded)
-                {
-                    await userManager.AddToRoleAsync(user, userDef.Role);
+                    await roleManager.CreateRoleAsync(new IdentityRole(role));
                 }
             }
+
+            // 2. Read strictly from Environment / AppSettings (No hardcoded fallbacks)
+            var adminEmail = configuration["SeedData:AdminEmail"];
+            var adminPassword = configuration["SeedData:AdminPassword"];
+
+            var managerEmail = configuration["SeedData:ManagerEmail"];
+            var managerPassword = configuration["SeedData:ManagerPassword"];
+
+            var userEmail = configuration["SeedData:UserEmail"];
+            var userPassword = configuration["SeedData:UserPassword"];
+
+            // 3. Helper Method to Seed Account
+            async Task CreateUserIfNotExist(string? email, string? password, string role)
+            {
+                if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
+                {
+                    // Skip seeding if credentials aren't provided in environment
+                    return;
+                }
+
+                if (await userManager.FindByEmailAsync(email) == null)
+                {
+                    var user = new IdentityUser
+                    {
+                        UserName = email,
+                        Email = email,
+                        EmailConfirmed = true
+                    };
+
+                    var result = await userManager.CreateAsync(user, password);
+                    if (result.Succeeded)
+                    {
+                        await userManager.AddToRoleAsync(user, role);
+                    }
+                }
+            }
+
+            await CreateUserIfNotExist(adminEmail, adminPassword, "Admin");
+            await CreateUserIfNotExist(managerEmail, managerPassword, "Manager");
+            await CreateUserIfNotExist(userEmail, userPassword, "User");
         }
     }
 }

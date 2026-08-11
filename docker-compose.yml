@@ -1,0 +1,31 @@
+﻿version: '3.8'
+
+services:
+  cmis_sql_server:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: cmis_sql_server
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${SA_PASSWORD:-AdminPass123!}
+    ports:
+      - "1433:1433"
+    restart: always
+
+  cmis_api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cmis_api
+    ports:
+      - "8080:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=cmis_sql_server,1433;Database=${DB_NAME:-CMIS_Db};User Id=sa;Password=${SA_PASSWORD:-AdminPass123!};TrustServerCertificate=True;
+      - SeedData__AdminEmail=${ADMIN_EMAIL}
+      - SeedData__AdminPassword=${ADMIN_PASSWORD}
+      - SeedData__ManagerEmail=${MANAGER_EMAIL}
+      - SeedData__ManagerPassword=${MANAGER_PASSWORD}
+      - SeedData__UserEmail=${USER_EMAIL}
+      - SeedData__UserPassword=${USER_PASSWORD}
+    depends_on:
+      - cmis_sql_server
+    restart: always
