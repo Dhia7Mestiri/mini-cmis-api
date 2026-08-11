@@ -2,7 +2,6 @@ using CMIS_IyaSoft.Data;
 using CMIS_IyaSoft.Middleware;
 using CMIS_IyaSoft.Services;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,14 +13,37 @@ builder.Services.AddSwaggerGen();
 // Database & Health Checks
 if (builder.Environment.IsProduction() || Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
 {
+    // Retrieve connection string cleanly from Render Environment Variables
+    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+
+    if (string.IsNullOrEmpty(connStr))
+    {
+        throw new InvalidOperationException("ConnectionStrings:DefaultConnection environment variable is missing.");
+    }
+
+    // Convert Render's postgresql:// URI into standard Npgsql format (Host=...;Database=...)
+    if (connStr.StartsWith("postgres://") || connStr.StartsWith("postgresql://"))
+    {
+        var uri = new Uri(connStr);
+        var userInfo = uri.UserInfo.Split(':');
+        var user = userInfo[0];
+        var password = userInfo.Length > 1 ? userInfo[1] : "";
+        var host = uri.Host;
+        var port = uri.Port > 0 ? uri.Port : 5432;
+        var database = uri.AbsolutePath.TrimStart('/');
+
+        connStr = $"Host={host};Port={port};Database={database};Username={user};Password={password};SSL Mode=Require;Trust Server Certificate=true";
+    }
+
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+        options.UseNpgsql(connStr));
 }
 else
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 }
+
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();
 
@@ -66,10 +88,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
-
 app.UseDefaultFiles();
 app.UseStaticFiles();
-
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -84,7 +104,6 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<AppDbContext>();
 
-        // EF Core will handle database and table creation automatically
         if (app.Environment.IsProduction() || Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
         {
             await context.Database.EnsureCreatedAsync();
