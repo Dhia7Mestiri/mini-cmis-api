@@ -167,13 +167,13 @@
                 li.className = 'list-group-item d-flex justify-content-between align-items-center';
 
                 li.innerHTML = `
-        <span>${icon} <strong>${item.name}</strong></span>
-        <div>
-            ${isFolder ? `<button class="btn btn-sm btn-info me-2" onclick="loadChildren('${item.id}')">Open</button>` : ''}
-            ${!isFolder ? `<button class="btn btn-sm btn-primary me-2" onclick="downloadFile('${item.id}', '${item.name}')">Download</button>` : ''}
-            <button class="btn btn-sm btn-danger" onclick="deleteObject('${item.id}')">Delete</button>
-        </div>
-    `;
+            <span>${icon} <strong>${item.name}</strong></span>
+            <div>
+                ${isFolder ? `<button class="btn btn-sm btn-info me-2" onclick="loadChildren('${item.id}')">Open</button>` : ''}
+                ${!isFolder ? `<button class="btn btn-sm btn-primary me-2" onclick="downloadFile('${item.id}', '${item.name}')">Download</button>` : ''}
+                <button class="btn btn-sm btn-danger" onclick="deleteObject('${item.id}')">Delete</button>
+            </div>
+        `;
                 list.appendChild(li);
             });
         }
@@ -335,18 +335,18 @@
                     const li = document.createElement('li');
                     li.className = 'list-group-item d-flex justify-content-between align-items-center';
                     li.innerHTML = `
-                            <span>${icon} <strong>${item.name}</strong> <small class="text-muted">(${item.path})</small></span>
-                            <div>
-                                ${!isFolder ? `<a href="/browser/${repoId}/${item.id}?cmisselector=content" class="btn btn-sm btn-primary me-2" target="_blank">Download</a>` : ''}
-                            </div>
-                        `;
+                                <span>${icon} <strong>${item.name}</strong> <small class="text-muted">(${item.path})</small></span>
+                                <div>
+                                    ${!isFolder ? `<a href="/browser/${repoId}/${item.id}?cmisselector=content" class="btn btn-sm btn-primary me-2" target="_blank">Download</a>` : ''}
+                                </div>
+                            `;
                     list.appendChild(li);
                 });
             }
         }
 
         checkHealth();
-        restoreSession(); 
+        restoreSession();
     </script>
 </body>
 </html>
