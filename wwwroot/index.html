@@ -117,15 +117,22 @@
             const res = await fetch('/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                // ✅ Tell .NET 8 Identity API to return a Bearer accessToken JSON
+                body: JSON.stringify({ email: email, password: password })
             });
 
             if (res.ok) {
                 const data = await res.json();
-                localStorage.setItem('token', data.accessToken);
-                document.getElementById('user-status').className = 'badge bg-primary';
-                document.getElementById('user-status').innerText = `Active: ${email}`;
-                loadChildren('root-folder');
+                // .NET 8 Identity API returns 'accessToken'
+                if (data.accessToken) {
+                    localStorage.setItem('token', data.accessToken);
+                    localStorage.setItem('email', email);
+                    document.getElementById('user-status').className = 'badge bg-primary';
+                    document.getElementById('user-status').innerText = `Active: ${email}`;
+                    loadChildren('root-folder');
+                } else {
+                    alert('Login succeeded, but no access token was returned.');
+                }
             } else {
                 alert('Authentication failed. Verify account credentials.');
             }
@@ -187,6 +194,8 @@
             if (res.ok) {
                 document.getElementById('folderName').value = '';
                 loadChildren(currentFolderId);
+            } else if (res.status === 401) {
+                alert('Not Authorized: Please authenticate first.');
             } else if (res.status === 403) {
                 alert('Permission Denied (403): Your role does not allow folder creation.');
             } else {
@@ -219,6 +228,8 @@
                 document.getElementById('docName').value = '';
                 fileInput.value = '';
                 loadChildren(currentFolderId);
+            } else if (res.status === 401) {
+                alert('Not Authorized: Please authenticate first.');
             } else if (res.status === 403) {
                 alert('Permission Denied (403): Your role does not allow uploading documents.');
             } else {
@@ -275,6 +286,31 @@
             }
         }
 
+        async function restoreSession() {
+            const token = localStorage.getItem('token');
+            const savedEmail = localStorage.getItem('email');
+            if (!token) return;
+
+            document.getElementById('user-status').className = 'badge bg-primary';
+            document.getElementById('user-status').innerText = `Active: ${savedEmail || 'session restored'}`;
+
+            const res = await fetch(`/browser/${repoId}/root-folder?cmisselector=children`, {
+                headers: getAuthHeaders()
+            });
+
+            if (res.status === 401) {
+                // Token expired or invalid — clear stale session
+                localStorage.removeItem('token');
+                localStorage.removeItem('email');
+                document.getElementById('user-status').className = 'badge bg-dark';
+                document.getElementById('user-status').innerText = 'Not Authenticated';
+                document.getElementById('objectList').innerHTML = '<li class="list-group-item text-danger">Session expired. Please re-authenticate.</li>';
+                return;
+            }
+
+            loadChildren('root-folder');
+        }
+
         async function searchObjects() {
             const query = document.getElementById('searchInput').value;
             if (!query) return;
@@ -310,6 +346,7 @@
         }
 
         checkHealth();
+        restoreSession(); 
     </script>
 </body>
 </html>
