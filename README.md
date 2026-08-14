@@ -1,46 +1,28 @@
-# CMIS 1.1 Browser Binding Engine (.NET 8)
+# 🚀 Mini-CMIS API
 
-A clean, enterprise-ready Content Management Interoperability Services (CMIS 1.1) Browser Binding API built with **ASP.NET Core (.NET 8)**, **Entity Framework Core**, and **SQL Server**.
+[![Render Status](https://api.render.com/deploy/srv-.../badge.svg)](https://render.com)
+[![API Status](https://img.shields.io/badge/API-Live-brightgreen)](https://mini-cmis-api.onrender.com/swagger)
+[![.NET 8](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Cloud-blue)](https://www.postgresql.org/)
 
----
+A robust **Content Management Interoperability Services (CMIS) 1.1** backend API built with **.NET 8**, featuring secure token-based authentication via **ASP.NET Core Identity**, deployed in a cloud production environment.
 
-## 📌 Project Overview
-
-This project implements the official **CMIS 1.1 Browser Binding** standard, enabling document management operations over HTTP using standard RESTful endpoint conventions. Binary content is persisted directly in SQL Server as byte streams (`byte[]`), and folder hierarchies are supported through self-referencing entity relationships.
-
----
-
-## ✨ Features
-
-- **Repository Information & Discovery**: `GET /browser` returns repository capabilities and supported CMIS standards.
-- **Type Definitions**: `GET /browser?cmisselector=types` lists supported CMIS types (`cmis:folder`, `cmis:document`).
-- **Hierarchy & Navigation**: `GET /browser/{repoId}/{objectId}?cmisselector=children` retrieves child objects of any folder.
-- **Binary Streaming**: `GET /browser/{repoId}/{objectId}?cmisselector=content` streams file binaries directly to clients.
-- **Document & Folder Creation**: `POST /browser/{repoId}/{objectId}` handles `multipart/form-data` file uploads (`cmisaction=createDocument`) and folder generation (`cmisaction=createFolder`).
-- **Object Deletion**: `POST /browser/{repoId}/{objectId}` (`cmisaction=delete`) safely removes files and empty directories.
-- **Keyword Search**: `GET /browser?cmisselector=query&q={term}` performs SQL `LIKE` queries across stored objects.
-- **Automatic Seeding**: Seeds the database on startup with standard type definitions and a root folder directory.
+## 🌐 Live Demo & Endpoints
+* **Base API URL:** `https://mini-cmis-api.onrender.com`
+* **Swagger Documentation:** `https://mini-cmis-api.onrender.com/swagger`
 
 ---
 
-## 🛠️ Architecture & Tech Stack
+## 🛠️ Tech Stack & Architecture
 
-- **Framework**: ASP.NET Core Web API (.NET 8)
-- **Database / ORM**: Microsoft SQL Server + Entity Framework Core 8.0
-- **API Specification**: Swagger / OpenAPI
-- **Design Pattern**: Service Layer + Repository Pattern with Entity Framework Core
+* **Backend Framework:** .NET 8 Web API
+* **Authentication:** ASP.NET Core Identity (Bearer Token Auth)
+* **Database & ORM:** PostgreSQL (Cloud Instance) via Entity Framework Core
+* **Hosting & CI/CD:** Render Cloud PaaS (Continuous Deployment via GitHub)
 
 ---
 
-## 🚀 Quick Start
-
-### 1. Prerequisites
-- [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- Microsoft SQL Server or SQL Server Express
-
-### 2. Database Setup
-Update `appsettings.json` with your local SQL Server instance:
-```json
-"ConnectionStrings": {
-  "DefaultConnection": "Server=YOUR_SERVER_NAME;Database=MiniCmisDb;Trusted_Connection=True;TrustServerCertificate=True;"
-}
+## 🚀 CI/CD Pipeline
+This project is configured with an automated production pipeline:
+1. **Source Control:** Code is maintained on GitHub (`main` branch).
+2. **Automated Deployment:** Every push to `main` automatically triggers Render to build the application and deploy with live status integration.
