@@ -3,83 +3,885 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CMIS 1.1 Explorer</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-    <div class="container py-4">
-        <!-- Header -->
-        <header class="pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center">
-            <h1 class="h4 m-0">📁 CMIS 1.1 Explorer</h1>
-            <div class="d-flex align-items-center gap-2">
-                <span id="health-badge" class="badge bg-secondary">Checking System Health...</span>
-                <span id="user-status" class="badge bg-dark">Not Authenticated</span>
-            </div>
-        </header>
+    <title>MiniCMIS Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #12141a;
+            --surface: #181b22;
+            --surface-2: #1f232c;
+            --border: #2a2f3a;
+            --border-soft: #22262f;
+            --text: #e8e6e1;
+            --text-muted: #9aa0ac;
+            --text-faint: #5f6672;
+            --amber: #d4a24c;
+            --amber-soft: #3a2f1c;
+            --teal: #4fb0ae;
+            --danger: #e5484d;
+            --danger-soft: #3a1f21;
+            --success: #3dd68c;
+            --radius: 8px;
+            --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'IBM Plex Mono', 'SF Mono', Menlo, monospace;
+        }
 
-        <!-- Access / Authentication Bar -->
-        <div class="card p-3 mb-4 shadow-sm bg-white">
-            <div class="row g-2 align-items-center">
-                <div class="col-md-5">
-                    <input type="email" id="email" class="form-control" placeholder="Email (e.g. admin@cmis.com)">
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: radial-gradient(1200px 600px at 15% -10%, rgba(212,162,76,0.06), transparent 60%), var(--bg);
+            color: var(--text);
+            font-family: var(--font-ui);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        a {
+            color: var(--teal);
+        }
+
+        ::selection {
+            background: rgba(212,162,76,0.3);
+        }
+
+        /* ---------- Layout ---------- */
+        .app {
+            max-width: 1360px;
+            margin: 0 auto;
+            padding: 0 24px 48px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-mark {
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+            background: linear-gradient(135deg, var(--amber), #a9762f);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-weight: 600;
+            font-size: 13px;
+            color: #1a1508;
+            flex-shrink: 0;
+        }
+
+        .brand-text h1 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        .brand-text p {
+            margin: 0;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .status-cluster {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+            flex-shrink: 0;
+        }
+
+            .dot.ok {
+                background: var(--success);
+                box-shadow: 0 0 0 3px rgba(61,214,140,0.15);
+            }
+
+            .dot.bad {
+                background: var(--danger);
+                box-shadow: 0 0 0 3px rgba(229,72,77,0.15);
+            }
+
+            .dot.pending {
+                background: var(--text-faint);
+            }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 11px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-muted);
+        }
+
+            .pill.accent {
+                border-color: rgba(212,162,76,0.4);
+                color: var(--amber);
+                background: var(--amber-soft);
+            }
+
+        /* ---------- Auth bar ---------- */
+        .auth-bar {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+            .auth-bar.authed {
+                padding: 12px 16px;
+            }
+
+        .auth-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+            .auth-user .email {
+                font-family: var(--font-mono);
+                color: var(--text);
+            }
+
+            .auth-user .role-note {
+                color: var(--text-faint);
+                font-size: 12px;
+            }
+
+        /* ---------- Form controls ---------- */
+        input[type=text], input[type=email], input[type=password], input[type=number], select, textarea {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 6px;
+            padding: 9px 11px;
+            font-family: var(--font-ui);
+            font-size: 13px;
+            outline: none;
+            transition: border-color .15s;
+        }
+
+            input:focus, select:focus, textarea:focus {
+                border-color: var(--amber);
+            }
+
+            input::placeholder, textarea::placeholder {
+                color: var(--text-faint);
+            }
+
+        label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: var(--text-faint);
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        button {
+            font-family: var(--font-ui);
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 6px;
+            padding: 9px 14px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all .15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+            button:disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+            }
+
+        .btn-primary {
+            background: var(--amber);
+            color: #1a1508;
+        }
+
+            .btn-primary:hover:not(:disabled) {
+                background: #e3b15e;
+            }
+
+        .btn-ghost {
+            background: transparent;
+            border-color: var(--border);
+            color: var(--text);
+        }
+
+            .btn-ghost:hover:not(:disabled) {
+                border-color: var(--text-muted);
+            }
+
+        .btn-danger {
+            background: transparent;
+            border-color: rgba(229,72,77,0.4);
+            color: var(--danger);
+        }
+
+            .btn-danger:hover:not(:disabled) {
+                background: var(--danger-soft);
+            }
+
+        .btn-sm {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        .btn-icon {
+            padding: 6px 8px;
+        }
+
+        .btn-block {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* ---------- Grid ---------- */
+        .grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+            .panel + .panel {
+                margin-top: 16px;
+            }
+
+        .panel-header {
+            padding: 13px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: between;
+            gap: 8px;
+        }
+
+            .panel-header h3 {
+                margin: 0;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: .05em;
+                color: var(--text-muted);
+                font-weight: 700;
+            }
+
+        .panel-body {
+            padding: 16px;
+        }
+
+        /* ---------- Sidebar sections ---------- */
+        .sidebar-section {
+            margin-bottom: 8px;
+        }
+
+        .field-stack > * {
+            margin-bottom: 10px;
+        }
+
+            .field-stack > *:last-child {
+                margin-bottom: 0;
+            }
+
+        .type-item {
+            padding: 9px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid transparent;
+        }
+
+            .type-item:hover {
+                background: var(--surface-2);
+                border-color: var(--border);
+            }
+
+            .type-item .badge-type {
+                font-family: var(--font-mono);
+                font-size: 11px;
+                color: var(--text-faint);
+            }
+
+        /* ---------- Breadcrumb & toolbar ---------- */
+        .crumb-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            flex-wrap: wrap;
+        }
+
+            .breadcrumb .crumb {
+                color: var(--text-muted);
+                cursor: pointer;
+                padding: 2px 4px;
+                border-radius: 4px;
+            }
+
+                .breadcrumb .crumb:hover {
+                    color: var(--amber);
+                    background: var(--surface-2);
+                }
+
+                .breadcrumb .crumb.current {
+                    color: var(--text);
+                    font-weight: 600;
+                    cursor: default;
+                }
+
+                    .breadcrumb .crumb.current:hover {
+                        background: none;
+                    }
+
+            .breadcrumb .sep {
+                color: var(--text-faint);
+            }
+
+        .toolbar-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* ---------- Table ---------- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: var(--text-faint);
+            font-weight: 600;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 11px 16px;
+            border-bottom: 1px solid var(--border-soft);
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        tr.row:hover td {
+            background: var(--surface-2);
+        }
+
+        tr.row.selected td {
+            background: rgba(212,162,76,0.07);
+        }
+
+        tr.row {
+            cursor: pointer;
+        }
+
+        .obj-name {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-weight: 500;
+        }
+
+        .obj-icon {
+            font-size: 15px;
+            width: 18px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .mono-dim {
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .row-actions {
+            display: flex;
+            gap: 4px;
+            justify-content: flex-end;
+            opacity: 0;
+            transition: opacity .1s;
+        }
+
+        tr.row:hover .row-actions, tr.row.selected .row-actions {
+            opacity: 1;
+        }
+
+        .empty-state {
+            padding: 48px 16px;
+            text-align: center;
+            color: var(--text-faint);
+        }
+
+            .empty-state .big {
+                font-size: 28px;
+                margin-bottom: 8px;
+            }
+
+        /* ---------- Query console ---------- */
+        .console {
+            background: #0d0f13;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: #d8dee9;
+        }
+
+        .console-prompt {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--amber);
+            font-size: 11px;
+            letter-spacing: .03em;
+        }
+
+        .console textarea {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #d8dee9;
+            resize: vertical;
+            min-height: 76px;
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+        }
+
+            .console textarea:focus {
+                outline: none;
+                border: none;
+            }
+
+        .query-meta {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+            .query-meta .field {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .query-meta input[type=number] {
+                width: 90px;
+            }
+
+        .query-hint {
+            font-size: 11.5px;
+            color: var(--text-faint);
+            margin-top: 8px;
+            font-family: var(--font-mono);
+            line-height: 1.6;
+        }
+
+        .query-result-meta {
+            display: flex;
+            gap: 16px;
+            padding: 10px 16px;
+            background: var(--surface-2);
+            border-top: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        /* ---------- Toasts ---------- */
+        #toasts {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 1000;
+            max-width: 380px;
+        }
+
+        .toast {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--teal);
+            border-radius: 6px;
+            padding: 12px 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            animation: slideIn .18s ease-out;
+        }
+
+            .toast.error {
+                border-left-color: var(--danger);
+            }
+
+            .toast.success {
+                border-left-color: var(--success);
+            }
+
+            .toast .toast-title {
+                font-weight: 700;
+                font-size: 12.5px;
+                margin-bottom: 2px;
+                display: flex;
+                justify-content: space-between;
+                gap: 8px;
+            }
+
+                .toast .toast-title .exc {
+                    font-family: var(--font-mono);
+                    font-size: 11px;
+                    color: var(--text-faint);
+                }
+
+            .toast .toast-msg {
+                font-size: 12.5px;
+                color: var(--text-muted);
+            }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* ---------- Modal ---------- */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(9,10,13,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 900;
+        }
+
+            .modal-backdrop.open {
+                display: flex;
+            }
+
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            width: 420px;
+            max-width: 90vw;
+        }
+
+        .modal-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+            .modal-header h3 {
+                margin: 0;
+                font-size: 14px;
+                font-weight: 700;
+            }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-faint);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 2px 6px;
+        }
+
+        .modal-body {
+            padding: 18px;
+        }
+
+        .modal-footer {
+            padding: 14px 18px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .type-props-table {
+            width: 100%;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+            .type-props-table th {
+                padding: 6px 8px;
+                font-size: 10px;
+            }
+
+            .type-props-table td {
+                padding: 6px 8px;
+                font-family: var(--font-mono);
+                font-size: 11.5px;
+            }
+
+        .chip {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 100px;
+            font-size: 10.5px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+
+            .chip.req {
+                border-color: rgba(212,162,76,0.4);
+                color: var(--amber);
+            }
+
+        /* ---------- Utility ---------- */
+        .text-muted {
+            color: var(--text-muted);
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: var(--text-muted);
+            margin: 0 0 10px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toasts"></div>
+
+    <div class="app">
+
+        <!-- Top bar -->
+        <div class="topbar">
+            <div class="brand">
+                <div class="brand-mark">M·C</div>
+                <div class="brand-text">
+                    <h1>MiniCMIS Console</h1>
+                    <p>CMIS 1.1 Browser Binding &middot; mini-cmis-repo</p>
                 </div>
-                <div class="col-md-5">
-                    <input type="password" id="password" class="form-control" placeholder="Password (e.g. AdminPass123!)">
-                </div>
-                <div class="col-md-2">
-                    <button class="btn btn-primary w-100" onclick="login()">Authenticate 🔑</button>
-                </div>
+            </div>
+            <div class="status-cluster">
+                <span class="pill" id="health-badge"><span class="dot pending"></span>Checking&hellip;</span>
             </div>
         </div>
 
-        <!-- Explorer View -->
-        <div class="row g-4">
-            <!-- Left Controls Column -->
-            <div class="col-md-4">
-                <!-- Search Card -->
-                <div class="card mb-3 shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title h6 fw-bold">🔍 Search Repository</h5>
-                        <div class="input-group">
-                            <input type="text" id="searchInput" class="form-control" placeholder="Search files...">
-                            <button class="btn btn-outline-primary" onclick="searchObjects()">Search</button>
+        <!-- Auth bar -->
+        <div class="auth-bar" id="authBar">
+            <div class="field-stack" style="display:flex;gap:10px;flex:1;flex-wrap:wrap;">
+                <input type="email" id="email" placeholder="Email" style="flex:1;min-width:180px;">
+                <input type="password" id="password" placeholder="Password" style="flex:1;min-width:180px;">
+            </div>
+            <button class="btn-primary" onclick="login()">Sign in</button>
+        </div>
+
+        <div class="grid">
+
+            <!-- Sidebar -->
+            <div>
+                <div class="panel">
+                    <div class="panel-header"><h3>New</h3></div>
+                    <div class="panel-body field-stack">
+                        <div>
+                            <label>Folder name</label>
+                            <input type="text" id="folderName" placeholder="e.g. Reports" style="width:100%;" disabled>
                         </div>
+                        <button class="btn-ghost btn-block" id="createFolderBtn" onclick="createFolder()" disabled title="Sign in first">Create folder</button>
+                        <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;">
+                        <div>
+                            <label>Upload document</label>
+                            <input type="text" id="docName" placeholder="Custom name (optional)" style="width:100%;margin-bottom:8px;" disabled>
+                            <input type="file" id="fileInput" style="width:100%;" disabled>
+                        </div>
+                        <button class="btn-primary btn-block" id="uploadBtn" onclick="uploadDocument()" disabled title="Sign in first">Upload</button>
                     </div>
                 </div>
 
-                <!-- Create Folder Card -->
-                <div class="card mb-3 shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title h6 fw-bold">➕ Create Folder</h5>
-                        <input type="text" id="folderName" class="form-control mb-2" placeholder="Folder Name">
-                        <button class="btn btn-success w-100" onclick="createFolder()">Create Folder</button>
-                    </div>
-                </div>
-
-                <!-- 📄 Upload Document Card -->
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title h6 fw-bold">📄 Upload Document</h5>
-                        <input type="text" id="docName" class="form-control mb-2" placeholder="Custom Name (optional)">
-                        <input type="file" id="fileInput" class="form-control mb-3">
-                        <button class="btn btn-primary w-100" onclick="uploadDocument()">Upload File</button>
+                <div class="panel">
+                    <div class="panel-header"><h3>Repository Types</h3></div>
+                    <div class="panel-body" id="typesList" style="padding:8px;">
+                        <div class="text-muted" style="padding:8px 10px;font-size:12.5px;">Sign in to load types.</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Objects List Column -->
-            <div class="col-md-8">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                        <h5 class="m-0 h6 fw-bold" id="currentFolderTitle">Current Folder: root-folder</h5>
-                        <button class="btn btn-sm btn-outline-secondary" onclick="loadChildren('root-folder')">Home 🏠</button>
+            <!-- Main -->
+            <div>
+                <div class="panel">
+                    <div class="crumb-toolbar">
+                        <div class="breadcrumb" id="breadcrumb"></div>
+                        <div class="toolbar-actions">
+                            <button class="btn-ghost btn-sm" onclick="refreshCurrent()">Refresh</button>
+                            <button class="btn-ghost btn-sm" id="renameBtn" onclick="openRenameModal()" disabled>Rename</button>
+                            <button class="btn-ghost btn-sm" id="moveBtn" onclick="openMoveModal()" disabled>Move</button>
+                            <button class="btn-danger btn-sm" id="deleteBtn" onclick="deleteSelected()" disabled>Delete</button>
+                            <button class="btn-danger btn-sm" id="deleteTreeBtn" onclick="deleteTreeSelected()" disabled>Delete tree</button>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <ul class="list-group" id="objectList">
-                            <li class="list-group-item text-muted">Please authenticate to view repository contents.</li>
-                        </ul>
-                    </div>
+                    <table>
+                        <thead>
+                            <tr><th style="width:42%;">Name</th><th>Type</th><th>Size</th><th>Modified</th><th></th></tr>
+                        </thead>
+                        <tbody id="objectList"></tbody>
+                    </table>
                 </div>
+
+                <!-- Query console -->
+                <div class="panel">
+                    <div class="panel-header"><h3>CMIS-SQL Query Console</h3></div>
+                    <div class="panel-body">
+                        <div class="console">
+                            <div class="console-prompt">STATEMENT</div>
+                            <textarea id="queryStatement" spellcheck="false">SELECT * FROM cmis:document WHERE IN_FOLDER('root-folder') ORDER BY cmis:name</textarea>
+                        </div>
+                        <div class="query-meta">
+                            <div class="field"><label style="margin-bottom:2px;">Max items</label><input type="number" id="maxItems" value="50"></div>
+                            <div class="field"><label style="margin-bottom:2px;">Skip count</label><input type="number" id="skipCount" value="0"></div>
+                            <button class="btn-primary" onclick="runQuery()">Run query</button>
+                        </div>
+                        <div class="query-hint">Supports: IN_FOLDER('id') &middot; = &lt;&gt; &gt; &lt; &gt;= &lt;= &middot; LIKE '%pattern%' &middot; IS [NOT] NULL &middot; AND / OR (left-to-right) &middot; ORDER BY &lt;prop&gt; [ASC|DESC]</div>
+                    </div>
+                    <table id="queryResultsTable" style="display:none;">
+                        <thead><tr><th style="width:42%;">Name</th><th>Type</th><th>Path</th><th></th></tr></thead>
+                        <tbody id="queryResults"></tbody>
+                    </table>
+                    <div class="query-result-meta hidden" id="queryMeta"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename modal -->
+    <div class="modal-backdrop" id="renameModal">
+        <div class="modal">
+            <div class="modal-header"><h3>Rename object</h3><button class="modal-close" onclick="closeModal('renameModal')">&times;</button></div>
+            <div class="modal-body">
+                <label>New name</label>
+                <input type="text" id="renameInput" style="width:100%;">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-ghost btn-sm" onclick="closeModal('renameModal')">Cancel</button>
+                <button class="btn-primary btn-sm" onclick="submitRename()">Rename</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Move modal -->
+    <div class="modal-backdrop" id="moveModal">
+        <div class="modal">
+            <div class="modal-header"><h3>Move object</h3><button class="modal-close" onclick="closeModal('moveModal')">&times;</button></div>
+            <div class="modal-body field-stack">
+                <div>
+                    <label>Target folder ID</label>
+                    <input type="text" id="moveTargetInput" placeholder="e.g. root-folder" style="width:100%;">
+                </div>
+                <div id="moveQuickPicks" style="font-size:12px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-ghost btn-sm" onclick="closeModal('moveModal')">Cancel</button>
+                <button class="btn-primary btn-sm" onclick="submitMove()">Move</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Type definition modal -->
+    <div class="modal-backdrop" id="typeModal">
+        <div class="modal" style="width:560px;">
+            <div class="modal-header"><h3 id="typeModalTitle">Type definition</h3><button class="modal-close" onclick="closeModal('typeModal')">&times;</button></div>
+            <div class="modal-body">
+                <p class="text-muted" id="typeModalDesc" style="margin-top:0;font-size:12.5px;"></p>
+                <table class="type-props-table">
+                    <thead><tr><th>Property</th><th>Type</th><th>Cardinality</th><th>Updatability</th><th>Required</th></tr></thead>
+                    <tbody id="typePropsBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-ghost btn-sm" onclick="closeModal('typeModal')">Close</button>
             </div>
         </div>
     </div>
@@ -87,261 +889,523 @@
     <script>
         const repoId = "mini-cmis-repo";
         let currentFolderId = "root-folder";
+        let navStack = [{ id: "root-folder", name: "root-folder" }];
+        let currentItems = [];
+        let selectedId = null;
+        let currentRoles = [];
 
+        function hasRole(role) { return currentRoles.includes(role); }
+        function canWrite() { return hasRole('Admin') || hasRole('Manager'); }
+        function canDelete() { return hasRole('Admin'); }
+
+        /* ---------- Utilities ---------- */
         function getAuthHeaders() {
             const token = localStorage.getItem('token');
             return token ? { 'Authorization': `Bearer ${token}` } : {};
         }
 
-        async function checkHealth() {
+        function showToast(title, message, type = 'info') {
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            el.innerHTML = `<div class="toast-title"><span>${title}</span></div><div class="toast-msg">${message || ''}</div>`;
+            document.getElementById('toasts').appendChild(el);
+            setTimeout(() => el.remove(), 5000);
+        }
+
+        // Parses the CMIS error envelope { exception, message } and shows a clear toast
+        async function handleErrorResponse(res, fallbackTitle) {
+            if (res.status === 401) {
+                showToast('401 Unauthorized', 'Your session is missing or invalid. Please sign in.', 'error');
+                return;
+            }
+            if (res.status === 403) {
+                showToast('403 Forbidden', 'Your role does not permit this action.', 'error');
+                return;
+            }
             try {
-                const res = await fetch('/health');
-                const badge = document.getElementById('health-badge');
-                if (res.ok) {
-                    badge.className = 'badge bg-success';
-                    badge.innerText = 'System Operational';
-                } else {
-                    badge.className = 'badge bg-danger';
-                    badge.innerText = 'Unhealthy';
-                }
+                const data = await res.json();
+                showToast(`${res.status} ${data.exception || fallbackTitle}`, data.message || '', 'error');
             } catch {
-                document.getElementById('health-badge').className = 'badge bg-danger';
-                document.getElementById('health-badge').innerText = 'Offline';
+                showToast(`${res.status} Error`, fallbackTitle || 'Request failed.', 'error');
             }
         }
 
+        function fmtBytes(n) {
+            if (n === null || n === undefined) return '—';
+            if (n < 1024) return `${n} B`;
+            if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+            return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+        }
+        function fmtDate(d) {
+            if (!d) return '—';
+            try { return new Date(d).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); }
+            catch { return d; }
+        }
+
+        function openModal(id) { document.getElementById(id).classList.add('open'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+        /* ---------- Health ---------- */
+        async function checkHealth() {
+            const badge = document.getElementById('health-badge');
+            try {
+                const res = await fetch('/health');
+                if (res.ok) {
+                    badge.innerHTML = '<span class="dot ok"></span>Operational';
+                } else {
+                    badge.innerHTML = '<span class="dot bad"></span>Unhealthy';
+                }
+            } catch {
+                badge.innerHTML = '<span class="dot bad"></span>Offline';
+            }
+        }
+
+        /* ---------- Auth ---------- */
         async function login() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            if (!email || !password) { showToast('Missing credentials', 'Enter both email and password.', 'error'); return; }
 
             const res = await fetch('/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // ✅ Tell .NET 8 Identity API to return a Bearer accessToken JSON
-                body: JSON.stringify({ email: email, password: password })
+                body: JSON.stringify({ email, password })
             });
 
             if (res.ok) {
                 const data = await res.json();
-                // .NET 8 Identity API returns 'accessToken'
                 if (data.accessToken) {
                     localStorage.setItem('token', data.accessToken);
                     localStorage.setItem('email', email);
-                    document.getElementById('user-status').className = 'badge bg-primary';
-                    document.getElementById('user-status').innerText = `Active: ${email}`;
-                    loadChildren('root-folder');
-                } else {
-                    alert('Login succeeded, but no access token was returned.');
+                    await fetchRoles();
+                    renderAuthedState(email);
+                    loadTypes();
+                    loadChildren('root-folder', 'root-folder', true);
+                    showToast('Signed in', `Welcome back, ${email}.`, 'success');
                 }
             } else {
-                alert('Authentication failed. Verify account credentials.');
+                showToast('Authentication failed', 'Check your credentials and try again.', 'error');
             }
         }
 
-        async function loadChildren(folderId) {
-            currentFolderId = folderId;
-            document.getElementById('currentFolderTitle').innerText = `Current Folder: ${folderId}`;
+        async function fetchRoles() {
+            try {
+                const res = await fetch('/auth/me', { headers: getAuthHeaders() });
+                if (res.ok) {
+                    const data = await res.json();
+                    currentRoles = data.roles || [];
+                } else {
+                    currentRoles = [];
+                }
+            } catch {
+                currentRoles = [];
+            }
+            applyPermissionGating();
+        }
 
-            const res = await fetch(`/browser/${repoId}/${folderId}?cmisselector=children`, {
-                headers: getAuthHeaders()
-            });
+        function applyPermissionGating() {
+            const writeAllowed = canWrite();
+            const deleteAllowed = canDelete();
 
+            document.getElementById('folderName').disabled = !writeAllowed;
+            document.getElementById('fileInput').disabled = !writeAllowed;
+            document.getElementById('docName').disabled = !writeAllowed;
+
+            const createFolderBtn = document.getElementById('createFolderBtn');
+            const uploadBtn = document.getElementById('uploadBtn');
+            createFolderBtn.disabled = !writeAllowed;
+            uploadBtn.disabled = !writeAllowed;
+            createFolderBtn.title = writeAllowed ? '' : 'Requires Admin or Manager role';
+            uploadBtn.title = writeAllowed ? '' : 'Requires Admin or Manager role';
+
+            updateToolbarState();
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('email');
+            location.reload();
+        }
+
+        function renderAuthedState(email) {
+            const bar = document.getElementById('authBar');
+            bar.classList.add('authed');
+            const roleBadges = currentRoles.map(r => `<span class="pill accent" style="padding:3px 9px;">${r}</span>`).join(' ');
+            bar.innerHTML = `
+        <div class="auth-user" style="flex:1;">
+          <span class="pill accent">&#9679; Authenticated</span>
+          <span class="email">${email}</span>
+          ${roleBadges}
+        </div>
+        <button class="btn-ghost btn-sm" onclick="logout()">Sign out</button>
+      `;
+        }
+
+        async function restoreSession() {
+            const token = localStorage.getItem('token');
+            const email = localStorage.getItem('email');
+            if (!token) return;
+
+            const res = await fetch(`/browser/${repoId}/root-folder?cmisselector=children`, { headers: getAuthHeaders() });
             if (res.status === 401) {
-                document.getElementById('objectList').innerHTML = '<li class="list-group-item text-danger">401 Unauthorized. Authenticate above.</li>';
+                localStorage.removeItem('token');
+                localStorage.removeItem('email');
+                return;
+            }
+            await fetchRoles();
+            renderAuthedState(email || 'session restored');
+            loadTypes();
+            loadChildren('root-folder', 'root-folder', true);
+        }
+
+        /* ---------- Navigation / breadcrumb ---------- */
+        function renderBreadcrumb() {
+            const el = document.getElementById('breadcrumb');
+            el.innerHTML = navStack.map((crumb, i) => {
+                const isLast = i === navStack.length - 1;
+                const sep = i > 0 ? '<span class="sep">/</span>' : '';
+                return `${sep}<span class="crumb ${isLast ? 'current' : ''}" ${isLast ? '' : `onclick="jumpTo(${i})"`}>${crumb.name}</span>`;
+            }).join('');
+        }
+
+        function jumpTo(index) {
+            navStack = navStack.slice(0, index + 1);
+            currentFolderId = navStack[navStack.length - 1].id;
+            loadChildren(currentFolderId, navStack[navStack.length - 1].name, false);
+        }
+
+        function refreshCurrent() {
+            const crumb = navStack[navStack.length - 1];
+            loadChildren(crumb.id, crumb.name, false);
+        }
+
+        /* ---------- Object list ---------- */
+        async function loadChildren(folderId, folderName, resetStack) {
+            currentFolderId = folderId;
+            selectedId = null;
+            updateToolbarState();
+
+            if (resetStack) {
+                navStack = [{ id: folderId, name: folderName || folderId }];
+            } else if (navStack[navStack.length - 1].id !== folderId) {
+                navStack.push({ id: folderId, name: folderName || folderId });
+            }
+            renderBreadcrumb();
+
+            const res = await fetch(`/browser/${repoId}/${folderId}?cmisselector=children`, { headers: getAuthHeaders() });
+            if (!res.ok) {
+                await handleErrorResponse(res, 'Failed to load folder');
+                document.getElementById('objectList').innerHTML = emptyRow('Could not load this folder.');
                 return;
             }
 
             const data = await res.json();
-            const list = document.getElementById('objectList');
-            list.innerHTML = '';
+            currentItems = data.objects || [];
+            renderTable(currentItems);
+        }
 
-            if (!data.objects || data.objects.length === 0) {
-                list.innerHTML = '<li class="list-group-item text-muted">Folder is empty</li>';
+        function emptyRow(message) {
+            return `<tr><td colspan="5"><div class="empty-state"><div class="big">&#128193;</div>${message}</div></td></tr>`;
+        }
+
+        function renderTable(items) {
+            const tbody = document.getElementById('objectList');
+            if (!items || items.length === 0) {
+                tbody.innerHTML = emptyRow('This folder is empty.');
                 return;
             }
 
-            data.objects.forEach(item => {
+            tbody.innerHTML = items.map(item => {
                 const isFolder = item.typeId === 'cmis:folder';
-                const icon = isFolder ? '📁' : '📄';
-                const li = document.createElement('li');
-                li.className = 'list-group-item d-flex justify-content-between align-items-center';
-
-                li.innerHTML = `
-            <span>${icon} <strong>${item.name}</strong></span>
-            <div>
-                ${isFolder ? `<button class="btn btn-sm btn-info me-2" onclick="loadChildren('${item.id}')">Open</button>` : ''}
-                ${!isFolder ? `<button class="btn btn-sm btn-primary me-2" onclick="downloadFile('${item.id}', '${item.name}')">Download</button>` : ''}
-                <button class="btn btn-sm btn-danger" onclick="deleteObject('${item.id}')">Delete</button>
-            </div>
-        `;
-                list.appendChild(li);
-            });
+                const icon = isFolder ? '&#128193;' : '&#128196;';
+                return `
+          <tr class="row" data-id="${item.id}" data-name="${item.name}" data-type="${item.typeId}"
+              onclick="selectRow(event, '${item.id}')" ondblclick="handleRowDoubleClick('${item.id}')">
+            <td>
+              <div class="obj-name">
+                <span class="obj-icon">${icon}</span>
+                <span>${item.name}</span>
+              </div>
+            </td>
+            <td class="mono-dim">${item.typeId}</td>
+            <td class="mono-dim">${isFolder ? '—' : fmtBytes(item.contentStreamLength)}</td>
+            <td class="mono-dim">${fmtDate(item.lastModificationDate)}</td>
+            <td>
+              <div class="row-actions">
+                ${!isFolder
+                        ? `<button class="btn-ghost btn-icon btn-sm" onclick="event.stopPropagation(); downloadFile('${item.id}', '${item.name}')" title="Download">&#8595;</button>`
+                        : `<span class="mono-dim" style="font-size:10.5px;">double-click to open</span>`}
+              </div>
+            </td>
+          </tr>`;
+            }).join('');
         }
 
+        function handleRowDoubleClick(id) {
+            const item = currentItems.find(i => i.id === id);
+            if (!item) return;
+            if (item.typeId === 'cmis:folder') {
+                loadChildren(item.id, item.name, false);
+            } else {
+                downloadFile(item.id, item.name);
+            }
+        }
+
+        function selectRow(evt, id) {
+            selectedId = selectedId === id ? null : id;
+            document.querySelectorAll('tr.row').forEach(r => r.classList.toggle('selected', r.dataset.id === selectedId));
+            updateToolbarState();
+        }
+
+        function updateToolbarState() {
+            const has = !!selectedId;
+            const writeAllowed = canWrite();
+            const deleteAllowed = canDelete();
+            const item = currentItems.find(i => i.id === selectedId);
+
+            const renameBtn = document.getElementById('renameBtn');
+            const moveBtn = document.getElementById('moveBtn');
+            const deleteBtn = document.getElementById('deleteBtn');
+            const deleteTreeBtn = document.getElementById('deleteTreeBtn');
+
+            renameBtn.disabled = !has || !writeAllowed;
+            renameBtn.title = !writeAllowed ? 'Requires Admin or Manager role' : '';
+
+            moveBtn.disabled = !has || !writeAllowed;
+            moveBtn.title = !writeAllowed ? 'Requires Admin or Manager role' : '';
+
+            deleteBtn.disabled = !has || !deleteAllowed;
+            deleteBtn.title = !deleteAllowed ? 'Requires Admin role' : '';
+
+            deleteTreeBtn.disabled = !has || !deleteAllowed || !item || item.typeId !== 'cmis:folder';
+            deleteTreeBtn.title = !deleteAllowed ? 'Requires Admin role' : '';
+        }
+
+        /* ---------- Create / Upload ---------- */
         async function createFolder() {
-            const name = document.getElementById('folderName').value;
+            const name = document.getElementById('folderName').value.trim();
             if (!name) return;
             const formData = new FormData();
             formData.append('cmisaction', 'createFolder');
             formData.append('name', name);
 
-            const res = await fetch(`/browser/${repoId}/${currentFolderId}`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: formData
-            });
-
+            const res = await fetch(`/browser/${repoId}/${currentFolderId}`, { method: 'POST', headers: getAuthHeaders(), body: formData });
             if (res.ok) {
                 document.getElementById('folderName').value = '';
-                loadChildren(currentFolderId);
-            } else if (res.status === 401) {
-                alert('Not Authorized: Please authenticate first.');
-            } else if (res.status === 403) {
-                alert('Permission Denied (403): Your role does not allow folder creation.');
+                showToast('Folder created', name, 'success');
+                refreshCurrent();
             } else {
-                alert('Operation failed.');
+                await handleErrorResponse(res, 'Could not create folder');
             }
         }
 
         async function uploadDocument() {
             const fileInput = document.getElementById('fileInput');
-            if (!fileInput.files || fileInput.files.length === 0) {
-                alert('Please select a file to upload.');
-                return;
-            }
+            if (!fileInput.files.length) { showToast('No file selected', 'Choose a file to upload.', 'error'); return; }
 
-            const docName = document.getElementById('docName').value;
+            const docName = document.getElementById('docName').value.trim();
             const formData = new FormData();
             formData.append('cmisaction', 'createDocument');
             formData.append('file', fileInput.files[0]);
-            if (docName) {
-                formData.append('name', docName);
-            }
+            if (docName) formData.append('name', docName);
 
-            const res = await fetch(`/browser/${repoId}/${currentFolderId}`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: formData
-            });
-
+            const res = await fetch(`/browser/${repoId}/${currentFolderId}`, { method: 'POST', headers: getAuthHeaders(), body: formData });
             if (res.ok) {
                 document.getElementById('docName').value = '';
                 fileInput.value = '';
-                loadChildren(currentFolderId);
-            } else if (res.status === 401) {
-                alert('Not Authorized: Please authenticate first.');
-            } else if (res.status === 403) {
-                alert('Permission Denied (403): Your role does not allow uploading documents.');
+                showToast('Document uploaded', '', 'success');
+                refreshCurrent();
             } else {
-                alert('File upload failed.');
+                await handleErrorResponse(res, 'Upload failed');
             }
         }
 
-        async function deleteObject(id) {
+        /* ---------- Rename ---------- */
+        function openRenameModal() {
+            if (!selectedId) return;
+            const item = currentItems.find(i => i.id === selectedId);
+            document.getElementById('renameInput').value = item ? item.name : '';
+            openModal('renameModal');
+        }
+
+        async function submitRename() {
+            const newName = document.getElementById('renameInput').value.trim();
+            if (!newName) return;
+            const formData = new FormData();
+            formData.append('cmisaction', 'update');
+            formData.append('name', newName);
+
+            const res = await fetch(`/browser/${repoId}/${selectedId}`, { method: 'POST', headers: getAuthHeaders(), body: formData });
+            closeModal('renameModal');
+            if (res.ok) {
+                showToast('Renamed', newName, 'success');
+                refreshCurrent();
+            } else {
+                await handleErrorResponse(res, 'Rename failed');
+            }
+        }
+
+        /* ---------- Move ---------- */
+        function openMoveModal() {
+            if (!selectedId) return;
+            document.getElementById('moveTargetInput').value = '';
+            const folders = currentItems.filter(i => i.typeId === 'cmis:folder' && i.id !== selectedId);
+            const picks = [{ id: 'root-folder', name: 'root-folder' }, ...folders];
+            document.getElementById('moveQuickPicks').innerHTML =
+                '<label>Quick pick</label>' +
+                picks.map(f => `<span class="chip" style="cursor:pointer;margin:2px 4px 2px 0;" onclick="document.getElementById('moveTargetInput').value='${f.id}'">${f.name}</span>`).join('');
+            openModal('moveModal');
+        }
+
+        async function submitMove() {
+            const targetFolderId = document.getElementById('moveTargetInput').value.trim();
+            if (!targetFolderId) return;
+            const formData = new FormData();
+            formData.append('cmisaction', 'move');
+            formData.append('targetFolderId', targetFolderId);
+
+            const res = await fetch(`/browser/${repoId}/${selectedId}`, { method: 'POST', headers: getAuthHeaders(), body: formData });
+            closeModal('moveModal');
+            if (res.ok) {
+                showToast('Moved', `To ${targetFolderId}`, 'success');
+                refreshCurrent();
+            } else {
+                await handleErrorResponse(res, 'Move failed');
+            }
+        }
+
+        /* ---------- Delete / Delete tree ---------- */
+        async function deleteSelected() {
+            if (!selectedId) return;
+            const item = currentItems.find(i => i.id === selectedId);
+            if (!confirm(`Delete "${item ? item.name : selectedId}"? This cannot be undone.`)) return;
+
             const formData = new FormData();
             formData.append('cmisaction', 'delete');
-
-            const res = await fetch(`/browser/${repoId}/${id}`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: formData
-            });
-
+            const res = await fetch(`/browser/${repoId}/${selectedId}`, { method: 'POST', headers: getAuthHeaders(), body: formData });
             if (res.ok) {
-                loadChildren(currentFolderId);
-            } else if (res.status === 403) {
-                alert('Permission Denied (403): Deletion requires Admin privileges.');
+                showToast('Deleted', '', 'success');
+                selectedId = null;
+                refreshCurrent();
+            } else {
+                await handleErrorResponse(res, 'Delete failed');
             }
         }
+
+        async function deleteTreeSelected() {
+            if (!selectedId) return;
+            const item = currentItems.find(i => i.id === selectedId);
+            if (!confirm(`Recursively delete "${item ? item.name : selectedId}" and everything inside it? This cannot be undone.`)) return;
+
+            const formData = new FormData();
+            formData.append('cmisaction', 'deleteTree');
+            const res = await fetch(`/browser/${repoId}/${selectedId}`, { method: 'POST', headers: getAuthHeaders(), body: formData });
+            if (res.ok) {
+                const data = await res.json();
+                showToast('Folder tree deleted', `${data.deletedCount ?? ''} object(s) removed`, 'success');
+                selectedId = null;
+                refreshCurrent();
+            } else {
+                await handleErrorResponse(res, 'Delete tree failed');
+            }
+        }
+
+        /* ---------- Download ---------- */
         async function downloadFile(objectId, fileName) {
             try {
-                const res = await fetch(`/browser/${repoId}/${objectId}?cmisselector=content`, {
-                    headers: getAuthHeaders() // Attaches Bearer token
-                });
-
-                if (res.status === 401) {
-                    alert('Unauthorized: Please authenticate first.');
-                    return;
-                }
-
-                if (!res.ok) {
-                    alert('Failed to download file or content is missing.');
-                    return;
-                }
-
-                // Convert response to binary Blob and trigger browser download
+                const res = await fetch(`/browser/${repoId}/${objectId}?cmisselector=content`, { headers: getAuthHeaders() });
+                if (!res.ok) { await handleErrorResponse(res, 'Download failed'); return; }
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
-                a.download = fileName || 'downloaded-file';
-                document.body.appendChild(a);
-                a.click();
-
-                // Cleanup
-                a.remove();
+                a.href = url; a.download = fileName || 'download';
+                document.body.appendChild(a); a.click(); a.remove();
                 window.URL.revokeObjectURL(url);
             } catch (err) {
-                alert(`Download error: ${err.message}`);
+                showToast('Download error', err.message, 'error');
             }
         }
 
-        async function restoreSession() {
-            const token = localStorage.getItem('token');
-            const savedEmail = localStorage.getItem('email');
-            if (!token) return;
+        /* ---------- Types ---------- */
+        async function loadTypes() {
+            const res = await fetch('/browser?cmisselector=types', { headers: getAuthHeaders() });
+            if (!res.ok) return;
+            const data = await res.json();
+            const list = document.getElementById('typesList');
+            const types = data.typeDefinitions || [];
+            list.innerHTML = types.map(t => `
+        <div class="type-item" onclick="loadTypeDefinition('${t.id}')">
+          <span>${t.displayName || t.id}</span>
+          <span class="badge-type">${t.id}</span>
+        </div>`).join('');
+        }
 
-            document.getElementById('user-status').className = 'badge bg-primary';
-            document.getElementById('user-status').innerText = `Active: ${savedEmail || 'session restored'}`;
+        async function loadTypeDefinition(typeId) {
+            const res = await fetch(`/browser?cmisselector=typeDefinition&typeId=${encodeURIComponent(typeId)}`, { headers: getAuthHeaders() });
+            if (!res.ok) { await handleErrorResponse(res, 'Could not load type'); return; }
+            const data = await res.json();
+            document.getElementById('typeModalTitle').innerText = data.displayName || data.id;
+            document.getElementById('typeModalDesc').innerText = data.description || data.id;
+            document.getElementById('typePropsBody').innerHTML = (data.propertyDefinitions || []).map(p => `
+        <tr>
+          <td>${p.id}</td>
+          <td>${p.propertyType}</td>
+          <td>${p.cardinality}</td>
+          <td>${p.updatability}</td>
+          <td>${p.required ? '<span class="chip req">required</span>' : '<span class="chip">optional</span>'}</td>
+        </tr>`).join('');
+            openModal('typeModal');
+        }
 
-            const res = await fetch(`/browser/${repoId}/root-folder?cmisselector=children`, {
-                headers: getAuthHeaders()
+        /* ---------- Query console ---------- */
+        async function runQuery() {
+            const statement = document.getElementById('queryStatement').value.trim();
+            if (!statement) return;
+            const maxItems = document.getElementById('maxItems').value || 100;
+            const skipCount = document.getElementById('skipCount').value || 0;
+
+            const formData = new URLSearchParams();
+            formData.append('cmisaction', 'query');
+            formData.append('statement', statement);
+            formData.append('maxItems', maxItems);
+            formData.append('skipCount', skipCount);
+
+            const res = await fetch('/browser', {
+                method: 'POST',
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
             });
 
-            if (res.status === 401) {
-                // Token expired or invalid — clear stale session
-                localStorage.removeItem('token');
-                localStorage.removeItem('email');
-                document.getElementById('user-status').className = 'badge bg-dark';
-                document.getElementById('user-status').innerText = 'Not Authenticated';
-                document.getElementById('objectList').innerHTML = '<li class="list-group-item text-danger">Session expired. Please re-authenticate.</li>';
+            const table = document.getElementById('queryResultsTable');
+            const metaEl = document.getElementById('queryMeta');
+
+            if (!res.ok) {
+                await handleErrorResponse(res, 'Query failed');
+                table.style.display = 'none';
+                metaEl.classList.add('hidden');
                 return;
             }
 
-            loadChildren('root-folder');
-        }
+            const data = await res.json();
+            const results = data.results || [];
+            table.style.display = results.length ? 'table' : 'none';
 
-        async function searchObjects() {
-            const query = document.getElementById('searchInput').value;
-            if (!query) return;
+            document.getElementById('queryResults').innerHTML = results.map(item => {
+                const isFolder = item.typeId === 'cmis:folder';
+                return `
+          <tr>
+            <td><div class="obj-name"><span class="obj-icon">${isFolder ? '&#128193;' : '&#128196;'}</span>${item.name}</div></td>
+            <td class="mono-dim">${item.typeId}</td>
+            <td class="mono-dim">${item.path}</td>
+            <td>${!isFolder ? `<button class="btn-ghost btn-icon btn-sm" onclick="downloadFile('${item.id}', '${item.name}')">&#8595;</button>` : ''}</td>
+          </tr>`;
+            }).join('');
 
-            const res = await fetch(`/browser?cmisselector=query&q=${encodeURIComponent(query)}`, {
-                headers: getAuthHeaders()
-            });
+            metaEl.classList.remove('hidden');
+            metaEl.innerHTML = `<span>${data.numItems} match(es)</span><span>hasMoreItems: ${data.hasMoreItems}</span>`;
 
-            if (res.ok) {
-                const data = await res.json();
-                const list = document.getElementById('objectList');
-                list.innerHTML = '';
-
-                if (!data.results || data.results.length === 0) {
-                    list.innerHTML = '<li class="list-group-item text-muted">No matching results found</li>';
-                    return;
-                }
-
-                data.results.forEach(item => {
-                    const isFolder = item.typeId === 'cmis:folder';
-                    const icon = isFolder ? '📁' : '📄';
-                    const li = document.createElement('li');
-                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
-                    li.innerHTML = `
-                                <span>${icon} <strong>${item.name}</strong> <small class="text-muted">(${item.path})</small></span>
-                                <div>
-                                    ${!isFolder ? `<a href="/browser/${repoId}/${item.id}?cmisselector=content" class="btn btn-sm btn-primary me-2" target="_blank">Download</a>` : ''}
-                                </div>
-                            `;
-                    list.appendChild(li);
-                });
+            if (results.length === 0) {
+                showToast('No results', 'Query returned zero matches.', 'info');
             }
         }
 
