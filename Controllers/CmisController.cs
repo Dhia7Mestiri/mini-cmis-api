@@ -1,4 +1,5 @@
-﻿using CMIS_IyaSoft.Services;
+﻿using CMIS_IyaSoft.Entities;
+using CMIS_IyaSoft.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,11 +17,14 @@ public class CmisController : ControllerBase
     }
 
     // GET /browser
-    // Returns repository info, types list, or search results based on ?cmisselector
+    // cmisselector=repositoryInfo|types|typeDefinition|query (default = discovery / repository info)
     [HttpGet]
     public async Task<IActionResult> GetRepository(
         [FromQuery] string? cmisselector,
-        [FromQuery] string? q)
+        [FromQuery] string? typeId,
+        [FromQuery] string? q,
+        [FromQuery] int maxItems = 100,
+        [FromQuery] int skipCount = 0)
     {
         if (string.Equals(cmisselector, "types", StringComparison.OrdinalIgnoreCase))
         {
@@ -28,18 +32,36 @@ public class CmisController : ControllerBase
             return Ok(new { typeDefinitions = types });
         }
 
+        if (string.Equals(cmisselector, "typeDefinition", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(typeId))
+            {
+                return BadRequest(new { exception = "invalidArgument", message = "'typeId' query parameter is required for typeDefinition selector." });
+            }
+
+            var type = await _cmisService.GetTypeDefinitionAsync(typeId);
+            if (type == null)
+            {
+                return NotFound(new { exception = "objectNotFound", message = $"Type '{typeId}' was not found." });
+            }
+
+            return Ok(CmisTypeDefinition.FromCmisType(type));
+        }
+
         if (string.Equals(cmisselector, "query", StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(q))
             {
-                return BadRequest(new { error = "Search query parameter 'q' is required for query selector." });
+                return BadRequest(new { exception = "invalidArgument", message = "Search query parameter 'q' is required for query selector." });
             }
 
             var results = await _cmisService.SearchObjectsAsync(q);
             return Ok(new { results });
         }
 
-        // Default Repository Info Response (CMIS 1.1 Compliant)
+        // Default: repository discovery info (getRepositories equivalent).
+        // Exposes both working URLs the spec asks the client to use for all subsequent calls.
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
         var repoInfo = new
         {
             defaultInfo = new
@@ -51,7 +73,9 @@ public class CmisController : ControllerBase
                 productName = "MiniCMIS API",
                 productVersion = "1.0.0",
                 rootFolderId = "root-folder",
-                cmisVersionSupported = "1.1"
+                cmisVersionSupported = "1.1",
+                repositoryUrl = $"{baseUrl}/browser",
+                rootFolderUrl = $"{baseUrl}/browser/mini-cmis-repo/root-folder"
             }
         };
 
@@ -59,7 +83,7 @@ public class CmisController : ControllerBase
     }
 
     // GET /browser/{repositoryId}/{objectId}
-    // Handles ?cmisselector=children, ?cmisselector=content, or object metadata
+    // cmisselector=children|content|parents|object (default)
     [HttpGet("{repositoryId}/{objectId}")]
     [Authorize(Roles = "Admin,Manager,User")]
     public async Task<IActionResult> GetObject(
@@ -67,38 +91,41 @@ public class CmisController : ControllerBase
         [FromRoute] string objectId,
         [FromQuery] string? cmisselector)
     {
-        // 1. Selector: children -> list folder content
         if (string.Equals(cmisselector, "children", StringComparison.OrdinalIgnoreCase))
         {
             var children = await _cmisService.GetChildrenAsync(objectId);
             return Ok(new { objects = children });
         }
 
-        // 2. Selector: content -> download binary stream
         if (string.Equals(cmisselector, "content", StringComparison.OrdinalIgnoreCase))
         {
             var streamResult = await _cmisService.GetContentStreamAsync(objectId);
             if (streamResult == null || streamResult.Value.Content == null)
             {
-                return NotFound(new { error = "Content stream not found for this object." });
+                return NotFound(new { exception = "objectNotFound", message = "Content stream not found for this object." });
             }
 
             var (content, mimeType, fileName) = streamResult.Value;
             return File(content, mimeType, fileName);
         }
 
-        // 3. Default: return object metadata
+        if (string.Equals(cmisselector, "parents", StringComparison.OrdinalIgnoreCase))
+        {
+            var parents = await _cmisService.GetParentsAsync(objectId);
+            return Ok(new { objects = parents });
+        }
+
         var cmisObject = await _cmisService.GetObjectByIdAsync(objectId);
         if (cmisObject == null)
         {
-            return NotFound(new { error = $"Object with ID '{objectId}' was not found." });
+            return NotFound(new { exception = "objectNotFound", message = $"Object with ID '{objectId}' was not found." });
         }
 
         return Ok(cmisObject);
     }
 
     // POST /browser/{repositoryId}/{objectId}
-    // Handles createDocument, createFolder, and delete
+    // cmisaction=createDocument|createFolder|update|move|delete|deleteTree
     [HttpPost("{repositoryId}/{objectId}")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> PostObject(
@@ -106,38 +133,63 @@ public class CmisController : ControllerBase
         [FromRoute] string objectId,
         [FromForm] string cmisaction,
         [FromForm] string? name,
+        [FromForm] string? targetFolderId,
         IFormFile? file)
     {
-        // ⛔ Restrict Deletion to Admin Only
         if (string.Equals(cmisaction, "delete", StringComparison.OrdinalIgnoreCase))
         {
             if (!User.IsInRole("Admin"))
             {
-                return Forbid(); // Returns 403 Forbidden if a Manager tries to delete
+                return Forbid();
             }
 
-            try
+            var success = await _cmisService.DeleteObjectAsync(objectId);
+            if (!success)
             {
-                var success = await _cmisService.DeleteObjectAsync(objectId);
-                if (!success)
-                {
-                    return NotFound(new { error = $"Object with ID '{objectId}' was not found." });
-                }
+                return NotFound(new { exception = "objectNotFound", message = $"Object with ID '{objectId}' was not found." });
+            }
 
-                return NoContent(); // 204 No Content for successful deletion
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            return NoContent();
         }
 
-        // 🔓 Both Admin and Manager can create documents and folders
+        if (string.Equals(cmisaction, "deleteTree", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!User.IsInRole("Admin"))
+            {
+                return Forbid();
+            }
+
+            var deletedCount = await _cmisService.DeleteTreeAsync(objectId);
+            return Ok(new { deletedCount });
+        }
+
+        if (string.Equals(cmisaction, "update", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return BadRequest(new { exception = "invalidArgument", message = "'name' is required for update action." });
+            }
+
+            var updated = await _cmisService.UpdateObjectAsync(objectId, name);
+            return Ok(updated);
+        }
+
+        if (string.Equals(cmisaction, "move", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(targetFolderId))
+            {
+                return BadRequest(new { exception = "invalidArgument", message = "'targetFolderId' is required for move action." });
+            }
+
+            var moved = await _cmisService.MoveObjectAsync(objectId, targetFolderId);
+            return Ok(moved);
+        }
+
         if (string.Equals(cmisaction, "createDocument", StringComparison.OrdinalIgnoreCase))
         {
             if (file == null || file.Length == 0)
             {
-                return BadRequest(new { error = "File content is required for createDocument action." });
+                return BadRequest(new { exception = "invalidArgument", message = "File content is required for createDocument action." });
             }
 
             var docName = string.IsNullOrWhiteSpace(name)
@@ -148,41 +200,58 @@ public class CmisController : ControllerBase
             await file.CopyToAsync(memoryStream);
             var fileBytes = memoryStream.ToArray();
 
-            try
-            {
-                var createdDoc = await _cmisService.CreateDocumentAsync(
-                    objectId,
-                    docName,
-                    file.ContentType ?? "application/octet-stream",
-                    fileBytes
-                );
+            var createdDoc = await _cmisService.CreateDocumentAsync(
+                objectId, docName, file.ContentType ?? "application/octet-stream", fileBytes);
 
-                return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdDoc.Id }, createdDoc);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdDoc.Id }, createdDoc);
         }
 
         if (string.Equals(cmisaction, "createFolder", StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(name))
             {
-                return BadRequest(new { error = "Folder name is required for createFolder action." });
+                return BadRequest(new { exception = "invalidArgument", message = "Folder name is required for createFolder action." });
             }
 
-            try
-            {
-                var createdFolder = await _cmisService.CreateFolderAsync(objectId, name);
-                return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdFolder.Id }, createdFolder);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            var createdFolder = await _cmisService.CreateFolderAsync(objectId, name);
+            return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdFolder.Id }, createdFolder);
         }
 
-        return BadRequest(new { error = $"Unsupported cmisaction '{cmisaction}'." });
+        if (string.Equals(cmisaction, "query", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { exception = "invalidArgument", message = "Use POST /browser?cmisaction=query with a 'statement' form field for CMIS-SQL queries." });
+        }
+
+        return BadRequest(new { exception = "notSupported", message = $"Unsupported cmisaction '{cmisaction}'." });
+    }
+
+    // POST /browser
+    // cmisaction=query - CMIS-SQL query endpoint, on the repository URL per spec
+    [HttpPost]
+    [Authorize(Roles = "Admin,Manager,User")]
+    public async Task<IActionResult> PostRepository(
+        [FromForm] string cmisaction,
+        [FromForm] string? statement,
+        [FromForm] int maxItems = 100,
+        [FromForm] int skipCount = 0)
+    {
+        if (!string.Equals(cmisaction, "query", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { exception = "notSupported", message = $"Unsupported cmisaction '{cmisaction}' on repository URL." });
+        }
+
+        if (string.IsNullOrWhiteSpace(statement))
+        {
+            return BadRequest(new { exception = "invalidArgument", message = "'statement' form field is required for query action." });
+        }
+
+        var (results, numItems, hasMoreItems) = await _cmisService.ExecuteQueryAsync(statement, maxItems, skipCount);
+
+        return Ok(new
+        {
+            results,
+            numItems,
+            hasMoreItems
+        });
     }
 }
