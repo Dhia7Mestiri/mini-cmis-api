@@ -1,0 +1,249 @@
+{
+  "info": {
+    "name": "MiniCMIS API",
+    "description": "CMIS 1.1 Browser Binding collection, organized by repository URL and root folder URL per the discovery model.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "token", "value": "" },
+    { "key": "rootFolderId", "value": "root-folder" },
+    { "key": "repositoryId", "value": "mini-cmis-repo" },
+    { "key": "newFolderId", "value": "" },
+    { "key": "newDocId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"StrongP@ssw0rd!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login (saves token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.accessToken) { pm.collectionVariables.set('token', data.accessToken); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"StrongP@ssw0rd!\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Repository URL ({repo})",
+      "item": [
+        {
+          "name": "getRepositories (discovery)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/browser" }
+        },
+        {
+          "name": "typeChildren",
+          "request": { "method": "GET", "url": "{{baseUrl}}/browser?cmisselector=types" }
+        },
+        {
+          "name": "typeDefinition (folder)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/browser?cmisselector=typeDefinition&typeId=cmis:folder" }
+        },
+        {
+          "name": "typeDefinition (document)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/browser?cmisselector=typeDefinition&typeId=cmis:document" }
+        },
+        {
+          "name": "query (basic search, GET)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/browser?cmisselector=query&q=welcome" }
+        },
+        {
+          "name": "query (CMIS-SQL, POST)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/browser",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "cmisaction", "value": "query" },
+                { "key": "statement", "value": "SELECT * FROM cmis:document WHERE IN_FOLDER('root-folder') AND cmis:name LIKE '%.txt'" },
+                { "key": "maxItems", "value": "50" },
+                { "key": "skipCount", "value": "0" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Root Folder URL ({root})",
+      "item": [
+        {
+          "name": "object (read metadata)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/{{rootFolderId}}"
+          }
+        },
+        {
+          "name": "children",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/{{rootFolderId}}?cmisselector=children"
+          }
+        },
+        {
+          "name": "parents",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newFolderId}}?cmisselector=parents"
+          }
+        },
+        {
+          "name": "content (download)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/doc-101?cmisselector=content"
+          }
+        },
+        {
+          "name": "createFolder (saves newFolderId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.id) { pm.collectionVariables.set('newFolderId', data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/{{rootFolderId}}",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "cmisaction", "value": "createFolder" },
+                { "key": "name", "value": "Reports" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "createDocument (saves newDocId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.id) { pm.collectionVariables.set('newDocId', data.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newFolderId}}",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "cmisaction", "value": "createDocument", "type": "text" },
+                { "key": "name", "value": "summary.txt", "type": "text" },
+                { "key": "file", "type": "file", "src": "" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "update (rename)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newFolderId}}",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "cmisaction", "value": "update" },
+                { "key": "name", "value": "Reports2026" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "move",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newDocId}}",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "cmisaction", "value": "move" },
+                { "key": "targetFolderId", "value": "{{rootFolderId}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "delete (single object)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newDocId}}",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [{ "key": "cmisaction", "value": "delete" }]
+            }
+          }
+        },
+        {
+          "name": "deleteTree (recursive)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newFolderId}}",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [{ "key": "cmisaction", "value": "deleteTree" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Health",
+      "item": [
+        { "name": "health check", "request": { "method": "GET", "url": "{{baseUrl}}/health" } }
+      ]
+    }
+  ]
+}
