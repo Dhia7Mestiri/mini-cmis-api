@@ -27,26 +27,30 @@ public class ExceptionHandlingMiddleware
         }
     }
 
+    // Maps to the CMIS 1.1 error model: { "exception": ..., "message": ... }
+    // with standard CMIS exception names and matching HTTP status codes.
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
 
-        var (statusCode, message) = exception switch
+        var (statusCode, cmisException) = exception switch
         {
-            KeyNotFoundException => ((int)HttpStatusCode.NotFound, exception.Message),
-            InvalidOperationException => ((int)HttpStatusCode.BadRequest, exception.Message),
-            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "Unauthorized access."),
-            _ => ((int)HttpStatusCode.InternalServerError, "An unexpected internal server error occurred.")
+            KeyNotFoundException => ((int)HttpStatusCode.NotFound, "objectNotFound"),
+            InvalidOperationException ioe when ioe.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase)
+                => ((int)HttpStatusCode.Conflict, "nameConstraintViolation"),
+            InvalidOperationException ioe when ioe.Message.Contains("Unsupported cmisaction", StringComparison.OrdinalIgnoreCase)
+                => ((int)HttpStatusCode.MethodNotAllowed, "notSupported"),
+            InvalidOperationException => ((int)HttpStatusCode.BadRequest, "invalidArgument"),
+            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "permissionDenied"),
+            _ => ((int)HttpStatusCode.InternalServerError, "runtime")
         };
 
         context.Response.StatusCode = statusCode;
 
         var response = new
         {
-            status = statusCode,
-            error = exception.GetType().Name,
-            message = message,
-            timestamp = DateTime.UtcNow
+            exception = cmisException,
+            message = exception.Message
         };
 
         return context.Response.WriteAsync(JsonSerializer.Serialize(response));
