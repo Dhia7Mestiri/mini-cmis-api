@@ -1,3 +1,6 @@
 <Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/CMIS_IyaSoft.Tests/CMIS_IyaSoft.Tests.csproj" />
+  </Folder>
   <Project Path="CMIS_IyaSoft.csproj" />
 </Solution>
