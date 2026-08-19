@@ -5,12 +5,30 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:5000" },
-    { "key": "token", "value": "" },
-    { "key": "rootFolderId", "value": "root-folder" },
-    { "key": "repositoryId", "value": "mini-cmis-repo" },
-    { "key": "newFolderId", "value": "" },
-    { "key": "newDocId", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "rootFolderId",
+      "value": "root-folder"
+    },
+    {
+      "key": "repositoryId",
+      "value": "mini-cmis-repo"
+    },
+    {
+      "key": "newFolderId",
+      "value": ""
+    },
+    {
+      "key": "newDocId",
+      "value": ""
+    }
   ],
   "item": [
     {
@@ -20,7 +38,12 @@
           "name": "Register",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/register",
             "body": {
               "mode": "raw",
@@ -43,7 +66,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{baseUrl}}/auth/login",
             "body": {
               "mode": "raw",
@@ -58,37 +86,103 @@
       "item": [
         {
           "name": "getRepositories (discovery)",
-          "request": { "method": "GET", "url": "{{baseUrl}}/browser" }
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/browser"
+          }
         },
         {
           "name": "typeChildren",
-          "request": { "method": "GET", "url": "{{baseUrl}}/browser?cmisselector=types" }
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/browser?cmisselector=types"
+          }
         },
         {
           "name": "typeDefinition (folder)",
-          "request": { "method": "GET", "url": "{{baseUrl}}/browser?cmisselector=typeDefinition&typeId=cmis:folder" }
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/browser?cmisselector=typeDefinition&typeId=cmis:folder"
+          }
         },
         {
           "name": "typeDefinition (document)",
-          "request": { "method": "GET", "url": "{{baseUrl}}/browser?cmisselector=typeDefinition&typeId=cmis:document" }
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/browser?cmisselector=typeDefinition&typeId=cmis:document"
+          }
         },
         {
           "name": "query (basic search, GET)",
-          "request": { "method": "GET", "url": "{{baseUrl}}/browser?cmisselector=query&q=welcome" }
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/browser?cmisselector=query&q=welcome"
+          }
         },
         {
           "name": "query (CMIS-SQL, POST)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{baseUrl}}/browser",
             "body": {
               "mode": "urlencoded",
               "urlencoded": [
-                { "key": "cmisaction", "value": "query" },
-                { "key": "statement", "value": "SELECT * FROM cmis:document WHERE IN_FOLDER('root-folder') AND cmis:name LIKE '%.txt'" },
-                { "key": "maxItems", "value": "50" },
-                { "key": "skipCount", "value": "0" }
+                {
+                  "key": "cmisaction",
+                  "value": "query"
+                },
+                {
+                  "key": "statement",
+                  "value": "SELECT * FROM cmis:document WHERE IN_FOLDER('root-folder') AND cmis:name LIKE '%.txt'"
+                },
+                {
+                  "key": "maxItems",
+                  "value": "50"
+                },
+                {
+                  "key": "skipCount",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "query (CMIS-SQL, custom property)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/browser",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "cmisaction",
+                  "value": "query"
+                },
+                {
+                  "key": "statement",
+                  "value": "SELECT * FROM cmis:document WHERE custom:department = 'Finance'"
+                },
+                {
+                  "key": "maxItems",
+                  "value": "50"
+                },
+                {
+                  "key": "skipCount",
+                  "value": "0"
+                }
               ]
             }
           }
@@ -102,7 +196,12 @@
           "name": "object (read metadata)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{baseUrl}}/browser/{{repositoryId}}/{{rootFolderId}}"
           }
         },
@@ -110,7 +209,12 @@
           "name": "children",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{baseUrl}}/browser/{{repositoryId}}/{{rootFolderId}}?cmisselector=children"
           }
         },
@@ -118,7 +222,12 @@
           "name": "parents",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newFolderId}}?cmisselector=parents"
           }
         },
@@ -126,7 +235,12 @@
           "name": "content (download)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{baseUrl}}/browser/{{repositoryId}}/doc-101?cmisselector=content"
           }
         },
@@ -145,13 +259,29 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{baseUrl}}/browser/{{repositoryId}}/{{rootFolderId}}",
             "body": {
               "mode": "urlencoded",
               "urlencoded": [
-                { "key": "cmisaction", "value": "createFolder" },
-                { "key": "name", "value": "Reports" }
+                {
+                  "key": "cmisaction",
+                  "value": "createFolder"
+                },
+                {
+                  "key": "name",
+                  "value": "Reports"
+                },
+                {
+                  "key": "properties",
+                  "value": "{\"custom:owner\":\"Finance Team\"}",
+                  "description": "Optional JSON object of custom property id -> value. Validated against cmisselector=typeDefinition&typeId=cmis:folder."
+                }
               ]
             }
           }
@@ -171,14 +301,65 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newFolderId}}",
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "cmisaction", "value": "createDocument", "type": "text" },
-                { "key": "name", "value": "summary.txt", "type": "text" },
-                { "key": "file", "type": "file", "src": "" }
+                {
+                  "key": "cmisaction",
+                  "value": "createDocument",
+                  "type": "text"
+                },
+                {
+                  "key": "name",
+                  "value": "summary.txt",
+                  "type": "text"
+                },
+                {
+                  "key": "properties",
+                  "value": "{\"custom:department\":\"Finance\"}",
+                  "type": "text",
+                  "description": "Optional JSON object of custom property id -> value. Validated against cmisselector=typeDefinition&typeId=cmis:document."
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "setContentStream (replace file content)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newDocId}}",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "cmisaction",
+                  "value": "setContentStream",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
               ]
             }
           }
@@ -187,13 +368,78 @@
           "name": "update (rename)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newFolderId}}",
             "body": {
               "mode": "urlencoded",
               "urlencoded": [
-                { "key": "cmisaction", "value": "update" },
-                { "key": "name", "value": "Reports2026" }
+                {
+                  "key": "cmisaction",
+                  "value": "update"
+                },
+                {
+                  "key": "name",
+                  "value": "Reports2026"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "update (set custom property)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newDocId}}",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "cmisaction",
+                  "value": "update"
+                },
+                {
+                  "key": "properties",
+                  "value": "{\"custom:department\":\"Legal\"}",
+                  "description": "Overwrites the value(s) for the given custom property id(s). Rejected with 400 if the property is unknown or readonly."
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "update (clear custom property)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newDocId}}",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "cmisaction",
+                  "value": "update"
+                },
+                {
+                  "key": "properties",
+                  "value": "{\"custom:department\":\"\"}",
+                  "description": "An empty string value clears/removes the property (vider une propriété)."
+                }
               ]
             }
           }
@@ -202,13 +448,24 @@
           "name": "move",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newDocId}}",
             "body": {
               "mode": "urlencoded",
               "urlencoded": [
-                { "key": "cmisaction", "value": "move" },
-                { "key": "targetFolderId", "value": "{{rootFolderId}}" }
+                {
+                  "key": "cmisaction",
+                  "value": "move"
+                },
+                {
+                  "key": "targetFolderId",
+                  "value": "{{rootFolderId}}"
+                }
               ]
             }
           }
@@ -217,11 +474,21 @@
           "name": "delete (single object)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newDocId}}",
             "body": {
               "mode": "urlencoded",
-              "urlencoded": [{ "key": "cmisaction", "value": "delete" }]
+              "urlencoded": [
+                {
+                  "key": "cmisaction",
+                  "value": "delete"
+                }
+              ]
             }
           }
         },
@@ -229,11 +496,21 @@
           "name": "deleteTree (recursive)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{baseUrl}}/browser/{{repositoryId}}/{{newFolderId}}",
             "body": {
               "mode": "urlencoded",
-              "urlencoded": [{ "key": "cmisaction", "value": "deleteTree" }]
+              "urlencoded": [
+                {
+                  "key": "cmisaction",
+                  "value": "deleteTree"
+                }
+              ]
             }
           }
         }
@@ -242,7 +519,13 @@
     {
       "name": "4. Health",
       "item": [
-        { "name": "health check", "request": { "method": "GET", "url": "{{baseUrl}}/health" } }
+        {
+          "name": "health check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          }
+        }
       ]
     }
   ]
