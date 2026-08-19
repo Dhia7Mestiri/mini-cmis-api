@@ -12,4 +12,10 @@ public class AppDbContext : IdentityDbContext
 
     // ➕ Ajoutez cette ligne pour les types CMIS :
     public DbSet<CmisType> Types { get; set; }
+
+    // Custom (non-system) property values, keyed by ObjectId + PropertyId.
+    public DbSet<ObjectProperty> ObjectProperties { get; set; }
+
+    // Custom property schema per type - what createDocument/update validate against.
+    public DbSet<TypePropertyDefinition> TypePropertyDefinitions { get; set; }
 }

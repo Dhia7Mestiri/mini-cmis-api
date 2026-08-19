@@ -8,6 +8,12 @@ namespace CMIS_IyaSoft.Services;
 /// SELECT * FROM &lt;type&gt; [WHERE &lt;conditions&gt;] [ORDER BY &lt;prop&gt; [ASC|DESC]]
 /// Conditions support: IN_FOLDER('id'), =, &lt;&gt;, &gt;, &lt;, &gt;=, &lt;=, LIKE, IS [NOT] NULL,
 /// combined with AND / OR (left-to-right, no parenthesis nesting - documented limitation).
+///
+/// System properties (cmis:name, cmis:objectId, ...) resolve directly from CmisObject.
+/// Custom (per-type) properties resolve through an optional customResolver delegate
+/// supplied by the caller (CmisService), which already knows how to look up
+/// ObjectProperty rows and cast them per TypePropertyDefinition.PropertyType -
+/// keeping this parser itself free of any DB dependency.
 /// </summary>
 public static class CmisQueryParser
 {
@@ -36,6 +42,9 @@ public static class CmisQueryParser
         ["cmis:contentStreamLength"] = o => o.ContentStreamLength,
         ["cmis:contentStreamMimeType"] = o => o.MimeType,
     };
+
+    /// <summary>Resolves a custom (non-system) property's typed value for an object. Returns null if absent.</summary>
+    public delegate object? CustomPropertyResolver(CmisObject obj, string propertyId);
 
     public class ParsedQuery
     {
@@ -77,7 +86,7 @@ public static class CmisQueryParser
     /// Evaluates the WHERE clause against a single object. Splits on AND/OR left-to-right
     /// (no operator precedence / parentheses - documented simplification for this project's scope).
     /// </summary>
-    public static bool Evaluate(CmisObject obj, string? whereClause)
+    public static bool Evaluate(CmisObject obj, string? whereClause, CustomPropertyResolver? customResolver = null)
     {
         if (string.IsNullOrWhiteSpace(whereClause))
         {
@@ -99,7 +108,7 @@ public static class CmisQueryParser
                 continue;
             }
 
-            var conditionResult = EvaluateCondition(obj, part);
+            var conditionResult = EvaluateCondition(obj, part, customResolver);
 
             result = result == null
                 ? conditionResult
@@ -109,7 +118,7 @@ public static class CmisQueryParser
         return result ?? true;
     }
 
-    private static bool EvaluateCondition(CmisObject obj, string condition)
+    private static bool EvaluateCondition(CmisObject obj, string condition, CustomPropertyResolver? customResolver)
     {
         condition = condition.Trim();
 
@@ -122,7 +131,7 @@ public static class CmisQueryParser
         var isNullMatch = Regex.Match(condition, @"^(?<prop>[\w:]+)\s+IS\s+(?<not>NOT\s+)?NULL$", RegexOptions.IgnoreCase);
         if (isNullMatch.Success)
         {
-            var value = GetPropertyValue(obj, isNullMatch.Groups["prop"].Value);
+            var value = GetPropertyValue(obj, isNullMatch.Groups["prop"].Value, customResolver);
             var isNull = value == null || (value is string s && string.IsNullOrEmpty(s));
             return isNullMatch.Groups["not"].Success ? !isNull : isNull;
         }
@@ -130,7 +139,7 @@ public static class CmisQueryParser
         var likeMatch = Regex.Match(condition, @"^(?<prop>[\w:]+)\s+LIKE\s+'(?<pattern>[^']*)'$", RegexOptions.IgnoreCase);
         if (likeMatch.Success)
         {
-            var value = GetPropertyValue(obj, likeMatch.Groups["prop"].Value)?.ToString() ?? string.Empty;
+            var value = GetPropertyValue(obj, likeMatch.Groups["prop"].Value, customResolver)?.ToString() ?? string.Empty;
             var pattern = "^" + Regex.Escape(likeMatch.Groups["pattern"].Value)
                 .Replace("%", ".*").Replace("_", ".") + "$";
             return Regex.IsMatch(value, pattern, RegexOptions.IgnoreCase);
@@ -147,19 +156,21 @@ public static class CmisQueryParser
                 obj,
                 comparisonMatch.Groups["prop"].Value,
                 comparisonMatch.Groups["op"].Value,
-                comparisonMatch.Groups["value"].Value);
+                comparisonMatch.Groups["value"].Value,
+                customResolver);
         }
 
         throw new InvalidOperationException($"Unable to parse WHERE condition: '{condition}'");
     }
 
-    private static bool EvaluateComparison(CmisObject obj, string propName, string op, string rawValue)
+    private static bool EvaluateComparison(CmisObject obj, string propName, string op, string rawValue, CustomPropertyResolver? customResolver)
     {
-        var propValue = GetPropertyValue(obj, propName);
+        var propValue = GetPropertyValue(obj, propName, customResolver);
         int cmp;
 
         if (propName.Equals("cmis:contentStreamLength", StringComparison.OrdinalIgnoreCase))
         {
+            // Nullable long system property - keep the explicit null-safe path.
             var left = Convert.ToInt64(propValue ?? 0L);
             var right = long.TryParse(rawValue, out var parsedLong) ? parsedLong : 0L;
             cmp = left.CompareTo(right);
@@ -168,6 +179,13 @@ public static class CmisQueryParser
         {
             var right = DateTime.TryParse(rawValue, out var parsedDate) ? parsedDate : DateTime.MinValue;
             cmp = dateValue.CompareTo(right);
+        }
+        else if (propValue is int or long or double or decimal or float)
+        {
+            // Generic numeric path - covers custom properties typed "integer" via customResolver.
+            var left = Convert.ToDouble(propValue);
+            var right = double.TryParse(rawValue, out var parsedNum) ? parsedNum : 0d;
+            cmp = left.CompareTo(right);
         }
         else
         {
@@ -187,24 +205,29 @@ public static class CmisQueryParser
         };
     }
 
-    private static object? GetPropertyValue(CmisObject obj, string propName)
+    private static object? GetPropertyValue(CmisObject obj, string propName, CustomPropertyResolver? customResolver)
     {
         if (PropertyMap.TryGetValue(propName, out var accessor))
         {
             return accessor(obj);
         }
 
+        if (customResolver != null)
+        {
+            return customResolver(obj, propName);
+        }
+
         throw new InvalidOperationException($"Unknown or unsupported property '{propName}' in query.");
     }
 
-    public static IEnumerable<CmisObject> Sort(IEnumerable<CmisObject> objects, ParsedQuery query)
+    public static IEnumerable<CmisObject> Sort(IEnumerable<CmisObject> objects, ParsedQuery query, CustomPropertyResolver? customResolver = null)
     {
         if (string.IsNullOrEmpty(query.OrderByProperty))
         {
             return objects;
         }
 
-        object? KeySelector(CmisObject o) => GetPropertyValue(o, query.OrderByProperty!);
+        object? KeySelector(CmisObject o) => GetPropertyValue(o, query.OrderByProperty!, customResolver);
 
         return query.OrderDescending
             ? objects.OrderByDescending(KeySelector, Comparer<object?>.Create(CompareObjects))

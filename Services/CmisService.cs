@@ -1,4 +1,5 @@
-﻿using CMIS_IyaSoft.Data;
+﻿using System.Text.Json;
+using CMIS_IyaSoft.Data;
 using CMIS_IyaSoft.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,15 +14,29 @@ public class CmisService : ICmisService
         _context = context;
     }
 
+    // ---------- Types ----------
+
     public async Task<IEnumerable<CmisType>> GetTypesAsync()
     {
         return await _context.Types.ToListAsync();
     }
 
-    public async Task<CmisType?> GetTypeDefinitionAsync(string typeId)
+    public async Task<CmisTypeDefinition?> GetTypeDefinitionAsync(string typeId)
     {
-        return await _context.Types.FirstOrDefaultAsync(t => t.Id == typeId);
+        var type = await _context.Types.FirstOrDefaultAsync(t => t.Id == typeId);
+        if (type == null)
+        {
+            return null;
+        }
+
+        var customProps = await _context.TypePropertyDefinitions
+            .Where(d => d.TypeId == typeId)
+            .ToListAsync();
+
+        return CmisTypeDefinition.WithCustomProperties(type, customProps);
     }
+
+    // ---------- Reads (raw entities - used internally and by write operations) ----------
 
     public async Task<IEnumerable<CmisObject>> GetChildrenAsync(string folderId)
     {
@@ -60,7 +75,285 @@ public class CmisService : ICmisService
         return (doc.ContentStream, doc.MimeType ?? "application/octet-stream", doc.Name);
     }
 
-    public async Task<CmisObject> CreateDocumentAsync(string parentId, string name, string mimeType, byte[] content)
+    // ---------- Reads (properties envelope - what controllers return to clients) ----------
+
+    public async Task<CmisObjectEnvelope?> GetObjectEnvelopeAsync(string objectId)
+    {
+        var obj = await GetObjectByIdAsync(objectId);
+        if (obj == null)
+        {
+            return null;
+        }
+
+        var envelopes = await BuildEnvelopesAsync(new List<CmisObject> { obj });
+        return envelopes.FirstOrDefault();
+    }
+
+    public async Task<IEnumerable<CmisObjectEnvelope>> GetChildrenEnvelopesAsync(string folderId)
+    {
+        var children = (await GetChildrenAsync(folderId)).ToList();
+        return await BuildEnvelopesAsync(children);
+    }
+
+    public async Task<IEnumerable<CmisObjectEnvelope>> GetParentsEnvelopesAsync(string objectId)
+    {
+        var parents = (await GetParentsAsync(objectId)).ToList();
+        return await BuildEnvelopesAsync(parents);
+    }
+
+    /// <summary>
+    /// Builds the CMIS properties envelope for a batch of objects in O(1) queries
+    /// (not N+1): loads all their custom property values and the relevant
+    /// TypePropertyDefinitions once, then assembles each envelope in memory.
+    /// </summary>
+    private async Task<List<CmisObjectEnvelope>> BuildEnvelopesAsync(List<CmisObject> objs)
+    {
+        if (objs.Count == 0)
+        {
+            return new List<CmisObjectEnvelope>();
+        }
+
+        var objectIds = objs.Select(o => o.Id).ToList();
+        var typeIds = objs.Select(o => o.TypeId).Distinct().ToList();
+
+        var customPropsByObject = (await _context.ObjectProperties
+                .Where(p => objectIds.Contains(p.ObjectId))
+                .ToListAsync())
+            .GroupBy(p => p.ObjectId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var typeDefsByType = (await _context.TypePropertyDefinitions
+                .Where(d => typeIds.Contains(d.TypeId))
+                .ToListAsync())
+            .GroupBy(d => d.TypeId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var envelopes = new List<CmisObjectEnvelope>();
+        foreach (var obj in objs)
+        {
+            var customProps = customPropsByObject.TryGetValue(obj.Id, out var cp) ? cp : new List<ObjectProperty>();
+            var typeDefs = typeDefsByType.TryGetValue(obj.TypeId, out var td) ? td : new List<TypePropertyDefinition>();
+            envelopes.Add(BuildEnvelope(obj, customProps, typeDefs));
+        }
+
+        return envelopes;
+    }
+
+    private static CmisObjectEnvelope BuildEnvelope(
+        CmisObject obj, List<ObjectProperty> customProps, List<TypePropertyDefinition> typeDefs)
+    {
+        var envelope = new CmisObjectEnvelope
+        {
+            Id = obj.Id,
+            Name = obj.Name,
+            TypeId = obj.TypeId,
+            ParentId = obj.ParentId,
+            Path = obj.Path
+        };
+
+        void AddSystem(string id, string localName, string type, object? value) =>
+            envelope.Properties[id] = new CmisPropertyValue
+            {
+                Id = id,
+                LocalName = localName,
+                Type = type,
+                Cardinality = "single",
+                Value = value
+            };
+
+        AddSystem("cmis:objectId", "objectId", "id", obj.Id);
+        AddSystem("cmis:name", "name", "string", obj.Name);
+        AddSystem("cmis:objectTypeId", "objectTypeId", "id", obj.TypeId);
+        AddSystem("cmis:parentId", "parentId", "id", obj.ParentId);
+        AddSystem("cmis:path", "path", "string", obj.Path);
+        AddSystem("cmis:createdBy", "createdBy", "string", obj.CreatedBy);
+        AddSystem("cmis:creationDate", "creationDate", "datetime", obj.CreationDate);
+        AddSystem("cmis:lastModificationDate", "lastModificationDate", "datetime", obj.LastModificationDate);
+
+        if (obj.TypeId == "cmis:document")
+        {
+            AddSystem("cmis:contentStreamLength", "contentStreamLength", "integer", obj.ContentStreamLength);
+            AddSystem("cmis:contentStreamMimeType", "contentStreamMimeType", "string", obj.MimeType);
+        }
+
+        foreach (var group in customProps.GroupBy(p => p.PropertyId))
+        {
+            var def = typeDefs.FirstOrDefault(d => d.PropertyId.Equals(group.Key, StringComparison.OrdinalIgnoreCase));
+            var ordered = group.OrderBy(p => p.SortOrder).ToList();
+            var cardinality = def?.Cardinality ?? (ordered.Count > 1 ? "multi" : "single");
+
+            object? value = cardinality == "multi"
+                ? ordered.Select(p => p.Value).ToArray()
+                : ordered.FirstOrDefault()?.Value;
+
+            envelope.Properties[group.Key] = new CmisPropertyValue
+            {
+                Id = group.Key,
+                LocalName = def?.LocalName ?? group.Key,
+                Type = def?.PropertyType ?? "string",
+                Cardinality = cardinality,
+                Value = value
+            };
+        }
+
+        return envelope;
+    }
+
+    // ---------- Custom property validation (create / update) ----------
+
+    /// <summary>
+    /// Parses and validates a JSON object of custom property id -> value (or array
+    /// of values, for multi-valued properties) against the type's TypePropertyDefinitions.
+    /// Returns the ObjectProperty rows to insert. Empty/null values are skipped here
+    /// (they mean "no value supplied", not "clear this property" - clearing only
+    /// applies on update, handled separately in ApplyCustomPropertyUpdatesAsync).
+    /// </summary>
+    private async Task<List<ObjectProperty>> ValidateAndBuildCustomPropertiesAsync(
+        string typeId, string objectId, string? propertiesJson, bool isCreate)
+    {
+        var typeDefs = await _context.TypePropertyDefinitions.Where(d => d.TypeId == typeId).ToListAsync();
+        var result = new List<ObjectProperty>();
+
+        var parsed = ParsePropertiesJson(propertiesJson);
+
+        foreach (var kvp in parsed)
+        {
+            var def = typeDefs.FirstOrDefault(d => d.PropertyId.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase));
+            if (def == null)
+            {
+                throw new InvalidOperationException($"Unknown property '{kvp.Key}' for type '{typeId}'.");
+            }
+
+            if (def.Updatability == "readonly")
+            {
+                throw new InvalidOperationException($"Property '{kvp.Key}' is read-only and cannot be set.");
+            }
+
+            if (IsEmptyValue(kvp.Value))
+            {
+                continue; // nothing to insert
+            }
+
+            result.AddRange(BuildPropertyRows(objectId, def, kvp.Value));
+        }
+
+        if (isCreate)
+        {
+            var missing = typeDefs.FirstOrDefault(d =>
+                d.Required && !parsed.Keys.Any(k => k.Equals(d.PropertyId, StringComparison.OrdinalIgnoreCase)));
+
+            if (missing != null)
+            {
+                throw new InvalidOperationException($"Required property '{missing.PropertyId}' is missing.");
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Applies a properties update in place: readonly properties are rejected,
+    /// an empty/null value clears the property ("vider une propriété"), anything
+    /// else replaces the existing value(s) for that property.
+    /// </summary>
+    private async Task ApplyCustomPropertyUpdatesAsync(string objectId, string typeId, string propertiesJson)
+    {
+        var typeDefs = await _context.TypePropertyDefinitions.Where(d => d.TypeId == typeId).ToListAsync();
+        var parsed = ParsePropertiesJson(propertiesJson);
+
+        foreach (var kvp in parsed)
+        {
+            var def = typeDefs.FirstOrDefault(d => d.PropertyId.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase));
+            if (def == null)
+            {
+                throw new InvalidOperationException($"Unknown property '{kvp.Key}' for type '{typeId}'.");
+            }
+
+            if (def.Updatability == "readonly")
+            {
+                throw new InvalidOperationException($"Property '{kvp.Key}' is read-only and cannot be modified.");
+            }
+
+            var existing = _context.ObjectProperties.Where(p => p.ObjectId == objectId && p.PropertyId == def.PropertyId);
+            _context.ObjectProperties.RemoveRange(existing);
+
+            if (IsEmptyValue(kvp.Value))
+            {
+                continue; // cleared - nothing re-added
+            }
+
+            _context.ObjectProperties.AddRange(BuildPropertyRows(objectId, def, kvp.Value));
+        }
+    }
+
+    private static Dictionary<string, JsonElement> ParsePropertiesJson(string? propertiesJson)
+    {
+        if (string.IsNullOrWhiteSpace(propertiesJson))
+        {
+            return new Dictionary<string, JsonElement>();
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(propertiesJson)
+                   ?? new Dictionary<string, JsonElement>();
+        }
+        catch (JsonException)
+        {
+            throw new InvalidOperationException(
+                "'properties' must be a valid JSON object, e.g. {\"custom:department\":\"Finance\"}.");
+        }
+    }
+
+    private static bool IsEmptyValue(JsonElement value) =>
+        value.ValueKind == JsonValueKind.Null ||
+        (value.ValueKind == JsonValueKind.String && string.IsNullOrEmpty(value.GetString()));
+
+    private static List<ObjectProperty> BuildPropertyRows(string objectId, TypePropertyDefinition def, JsonElement value)
+    {
+        var rows = new List<ObjectProperty>();
+
+        if (def.Cardinality == "multi")
+        {
+            if (value.ValueKind != JsonValueKind.Array)
+            {
+                throw new InvalidOperationException($"Property '{def.PropertyId}' is multi-valued and expects a JSON array.");
+            }
+
+            var order = 0;
+            foreach (var item in value.EnumerateArray())
+            {
+                rows.Add(new ObjectProperty
+                {
+                    ObjectId = objectId,
+                    PropertyId = def.PropertyId,
+                    PropertyType = def.PropertyType,
+                    Cardinality = def.Cardinality,
+                    Value = item.ValueKind == JsonValueKind.String ? item.GetString() ?? string.Empty : item.ToString(),
+                    SortOrder = order++
+                });
+            }
+        }
+        else
+        {
+            rows.Add(new ObjectProperty
+            {
+                ObjectId = objectId,
+                PropertyId = def.PropertyId,
+                PropertyType = def.PropertyType,
+                Cardinality = def.Cardinality,
+                Value = value.ValueKind == JsonValueKind.String ? value.GetString() ?? string.Empty : value.ToString(),
+                SortOrder = 0
+            });
+        }
+
+        return rows;
+    }
+
+    // ---------- Writes ----------
+
+    public async Task<CmisObject> CreateDocumentAsync(
+        string parentId, string name, string mimeType, byte[] content, string? propertiesJson = null)
     {
         var existing = await _context.Objects
             .FirstOrDefaultAsync(o => o.ParentId == parentId && o.Name == name);
@@ -89,12 +382,16 @@ public class CmisService : ICmisService
             LastModificationDate = DateTime.UtcNow
         };
 
+        var customPropertyRows = await ValidateAndBuildCustomPropertiesAsync(
+            "cmis:document", newDoc.Id, propertiesJson, isCreate: true);
+
         _context.Objects.Add(newDoc);
+        _context.ObjectProperties.AddRange(customPropertyRows);
         await _context.SaveChangesAsync();
         return newDoc;
     }
 
-    public async Task<CmisObject> CreateFolderAsync(string parentId, string name)
+    public async Task<CmisObject> CreateFolderAsync(string parentId, string name, string? propertiesJson = null)
     {
         var existing = await _context.Objects
             .FirstOrDefaultAsync(o => o.ParentId == parentId && o.Name == name);
@@ -120,16 +417,20 @@ public class CmisService : ICmisService
             LastModificationDate = DateTime.UtcNow
         };
 
+        var customPropertyRows = await ValidateAndBuildCustomPropertiesAsync(
+            "cmis:folder", newFolder.Id, propertiesJson, isCreate: true);
+
         _context.Objects.Add(newFolder);
+        _context.ObjectProperties.AddRange(customPropertyRows);
         await _context.SaveChangesAsync();
         return newFolder;
     }
 
-    public async Task<CmisObject> UpdateObjectAsync(string objectId, string newName)
+    public async Task<CmisObject> UpdateObjectAsync(string objectId, string? newName, string? propertiesJson = null)
     {
-        if (string.IsNullOrWhiteSpace(newName))
+        if (string.IsNullOrWhiteSpace(newName) && string.IsNullOrWhiteSpace(propertiesJson))
         {
-            throw new InvalidOperationException("The new name cannot be empty.");
+            throw new InvalidOperationException("Provide at least 'name' or 'properties' to update.");
         }
 
         var obj = await _context.Objects.FirstOrDefaultAsync(o => o.Id == objectId);
@@ -138,37 +439,67 @@ public class CmisService : ICmisService
             throw new KeyNotFoundException($"Object with ID '{objectId}' was not found.");
         }
 
-        if (obj.ParentId == null)
+        if (!string.IsNullOrWhiteSpace(newName))
         {
-            throw new InvalidOperationException("Cannot rename the root folder.");
+            if (obj.ParentId == null)
+            {
+                throw new InvalidOperationException("Cannot rename the root folder.");
+            }
+
+            var duplicate = await _context.Objects
+                .FirstOrDefaultAsync(o => o.ParentId == obj.ParentId && o.Name == newName && o.Id != objectId);
+
+            if (duplicate != null)
+            {
+                throw new InvalidOperationException($"An object named '{newName}' already exists in this folder.");
+            }
+
+            var oldPath = obj.Path;
+            var lastSlashIndex = oldPath.LastIndexOf('/');
+            var parentPath = lastSlashIndex <= 0 ? "/" : oldPath.Substring(0, lastSlashIndex);
+            var newPath = parentPath == "/" ? $"/{newName}" : $"{parentPath}/{newName}";
+
+            // Rewrite the path prefix on every descendant (materialized path pattern)
+            var descendants = await _context.Objects
+                .Where(o => o.Path.StartsWith(oldPath + "/"))
+                .ToListAsync();
+
+            foreach (var descendant in descendants)
+            {
+                descendant.Path = newPath + descendant.Path.Substring(oldPath.Length);
+                descendant.LastModificationDate = DateTime.UtcNow;
+            }
+
+            obj.Name = newName;
+            obj.Path = newPath;
         }
 
-        var duplicate = await _context.Objects
-            .FirstOrDefaultAsync(o => o.ParentId == obj.ParentId && o.Name == newName && o.Id != objectId);
-
-        if (duplicate != null)
+        if (!string.IsNullOrWhiteSpace(propertiesJson))
         {
-            throw new InvalidOperationException($"An object named '{newName}' already exists in this folder.");
+            await ApplyCustomPropertyUpdatesAsync(objectId, obj.TypeId, propertiesJson);
         }
 
-        var oldPath = obj.Path;
-        var lastSlashIndex = oldPath.LastIndexOf('/');
-        var parentPath = lastSlashIndex <= 0 ? "/" : oldPath.Substring(0, lastSlashIndex);
-        var newPath = parentPath == "/" ? $"/{newName}" : $"{parentPath}/{newName}";
+        obj.LastModificationDate = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return obj;
+    }
 
-        // Rewrite the path prefix on every descendant (materialized path pattern)
-        var descendants = await _context.Objects
-            .Where(o => o.Path.StartsWith(oldPath + "/"))
-            .ToListAsync();
-
-        foreach (var descendant in descendants)
+    public async Task<CmisObject> SetContentStreamAsync(string objectId, string mimeType, byte[] content)
+    {
+        var obj = await _context.Objects.FirstOrDefaultAsync(o => o.Id == objectId);
+        if (obj == null)
         {
-            descendant.Path = newPath + descendant.Path.Substring(oldPath.Length);
-            descendant.LastModificationDate = DateTime.UtcNow;
+            throw new KeyNotFoundException($"Object with ID '{objectId}' was not found.");
         }
 
-        obj.Name = newName;
-        obj.Path = newPath;
+        if (obj.TypeId != "cmis:document")
+        {
+            throw new InvalidOperationException("setContentStream can only be used on documents.");
+        }
+
+        obj.ContentStream = content;
+        obj.MimeType = mimeType;
+        obj.ContentStreamLength = content.Length;
         obj.LastModificationDate = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -261,6 +592,8 @@ public class CmisService : ICmisService
             throw new InvalidOperationException("Cannot delete a folder that contains child objects. Delete the contents first, or use deleteTree.");
         }
 
+        var customProps = _context.ObjectProperties.Where(p => p.ObjectId == objectId);
+        _context.ObjectProperties.RemoveRange(customProps);
         _context.Objects.Remove(cmisObj);
         await _context.SaveChangesAsync();
         return true;
@@ -290,6 +623,10 @@ public class CmisService : ICmisService
             .ToListAsync();
 
         var count = descendants.Count + 1;
+        var allIds = descendants.Select(d => d.Id).Append(folder.Id).ToList();
+
+        var customProps = _context.ObjectProperties.Where(p => allIds.Contains(p.ObjectId));
+        _context.ObjectProperties.RemoveRange(customProps);
 
         _context.Objects.RemoveRange(descendants);
         _context.Objects.Remove(folder);
@@ -322,8 +659,43 @@ public class CmisService : ICmisService
             .Where(o => o.TypeId == parsed.TypeId)
             .ToListAsync();
 
-        var filtered = candidates.Where(o => CmisQueryParser.Evaluate(o, parsed.WhereClause));
-        var sorted = CmisQueryParser.Sort(filtered, parsed).ToList();
+        var candidateIds = candidates.Select(o => o.Id).ToList();
+
+        // Load custom property values + their type definitions once (no N+1), so
+        // WHERE/ORDER BY can also resolve custom (non-system) properties, typed
+        // correctly per TypePropertyDefinition.PropertyType.
+        var customPropsByObject = (await _context.ObjectProperties
+                .Where(p => candidateIds.Contains(p.ObjectId))
+                .ToListAsync())
+            .GroupBy(p => p.ObjectId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(p => p.SortOrder).ToList());
+
+        object? CustomResolver(CmisObject obj, string propertyId)
+        {
+            if (!customPropsByObject.TryGetValue(obj.Id, out var props))
+            {
+                return null;
+            }
+
+            var match = props.FirstOrDefault(p => p.PropertyId.Equals(propertyId, StringComparison.OrdinalIgnoreCase));
+            if (match == null)
+            {
+                return null;
+            }
+
+            // WHERE/ORDER BY compare against the first value for multi-valued properties
+            // (documented simplification, consistent with the parser's scope).
+            return match.PropertyType switch
+            {
+                "integer" => long.TryParse(match.Value, out var l) ? l : null,
+                "datetime" => DateTime.TryParse(match.Value, out var d) ? d : null,
+                "boolean" => bool.TryParse(match.Value, out var b) ? b : null,
+                _ => match.Value
+            };
+        }
+
+        var filtered = candidates.Where(o => CmisQueryParser.Evaluate(o, parsed.WhereClause, CustomResolver));
+        var sorted = CmisQueryParser.Sort(filtered, parsed, CustomResolver).ToList();
 
         var numItems = sorted.Count;
         var page = sorted.Skip(skipCount).Take(maxItems).ToList();

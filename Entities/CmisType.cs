@@ -55,6 +55,10 @@ public class CmisTypeDefinition
         return props;
     }
 
+    /// <summary>
+    /// Builds the fixed system property set for a type (no DB access - cmis:name,
+    /// cmis:objectId, etc. are the same for every repository, always).
+    /// </summary>
     public static CmisTypeDefinition FromCmisType(CmisType type)
     {
         var props = string.Equals(type.Id, "cmis:folder", StringComparison.OrdinalIgnoreCase)
@@ -69,5 +73,28 @@ public class CmisTypeDefinition
             Description = type.Description,
             PropertyDefinitions = props
         };
+    }
+
+    /// <summary>
+    /// Merges DB-driven custom property definitions (per-type, from TypePropertyDefinition)
+    /// on top of the fixed system set built by FromCmisType. This is what
+    /// cmisselector=typeDefinition actually returns.
+    /// </summary>
+    public static CmisTypeDefinition WithCustomProperties(
+        CmisType type, IEnumerable<TypePropertyDefinition> customProps)
+    {
+        var definition = FromCmisType(type);
+
+        definition.PropertyDefinitions.AddRange(customProps.Select(cp => new CmisPropertyDefinition
+        {
+            Id = cp.PropertyId,
+            LocalName = cp.LocalName,
+            PropertyType = cp.PropertyType,
+            Cardinality = cp.Cardinality,
+            Updatability = cp.Updatability,
+            Required = cp.Required
+        }));
+
+        return definition;
     }
 }

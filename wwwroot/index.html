@@ -1110,37 +1110,73 @@
 
         function renderTable(items) {
             const tbody = document.getElementById('objectList');
+
             if (!items || items.length === 0) {
                 tbody.innerHTML = emptyRow('This folder is empty.');
                 return;
             }
 
             tbody.innerHTML = items.map(item => {
+
                 const isFolder = item.typeId === 'cmis:folder';
                 const icon = isFolder ? '&#128193;' : '&#128196;';
+
+                // Objects are now returned using the CMIS properties envelope.
+                // Keep fallbacks to the old direct fields for compatibility.
+                const contentStreamLength =
+                    item.properties?.['cmis:contentStreamLength']?.value
+                    ?? item.contentStreamLength;
+
+                const lastModificationDate =
+                    item.properties?.['cmis:lastModificationDate']?.value
+                    ?? item.lastModificationDate;
+
                 return `
-          <tr class="row" data-id="${item.id}" data-name="${item.name}" data-type="${item.typeId}"
-              onclick="selectRow(event, '${item.id}')" ondblclick="handleRowDoubleClick('${item.id}')">
+          <tr class="row"
+              data-id="${item.id}"
+              data-name="${item.name}"
+              data-type="${item.typeId}"
+              onclick="selectRow(event, '${item.id}')"
+              ondblclick="handleRowDoubleClick('${item.id}')">
+
             <td>
               <div class="obj-name">
                 <span class="obj-icon">${icon}</span>
                 <span>${item.name}</span>
               </div>
             </td>
-            <td class="mono-dim">${item.typeId}</td>
-            <td class="mono-dim">${isFolder ? '—' : fmtBytes(item.contentStreamLength)}</td>
-            <td class="mono-dim">${fmtDate(item.lastModificationDate)}</td>
+
+            <td class="mono-dim">
+                ${item.typeId}
+            </td>
+
+            <td class="mono-dim">
+                ${isFolder ? '—' : fmtBytes(contentStreamLength)}
+            </td>
+
+            <td class="mono-dim">
+                ${fmtDate(lastModificationDate)}
+            </td>
+
             <td>
               <div class="row-actions">
                 ${!isFolder
-                        ? `<button class="btn-ghost btn-icon btn-sm" onclick="event.stopPropagation(); downloadFile('${item.id}', '${item.name}')" title="Download">&#8595;</button>`
-                        : `<span class="mono-dim" style="font-size:10.5px;">double-click to open</span>`}
+                        ? `<button
+                            class="btn-ghost btn-icon btn-sm"
+                            onclick="event.stopPropagation(); downloadFile('${item.id}', '${item.name}')"
+                            title="Download">
+                            &#8595;
+                       </button>`
+                        : `<span class="mono-dim" style="font-size:10.5px;">
+                            double-click to open
+                       </span>`
+                    }
               </div>
             </td>
+
           </tr>`;
             }).join('');
         }
-
         function handleRowDoubleClick(id) {
             const item = currentItems.find(i => i.id === id);
             if (!item) return;

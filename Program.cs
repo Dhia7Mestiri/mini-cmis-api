@@ -107,6 +107,7 @@ using (var scope = app.Services.CreateScope())
         if (app.Environment.IsProduction() || Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
         {
             await context.Database.EnsureCreatedAsync();
+            await DbInitializer.EnsureCustomPropertyTablesAsync(context);
         }
         else
         {

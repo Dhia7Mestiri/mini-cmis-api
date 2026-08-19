@@ -39,13 +39,15 @@ public class CmisController : ControllerBase
                 return BadRequest(new { exception = "invalidArgument", message = "'typeId' query parameter is required for typeDefinition selector." });
             }
 
-            var type = await _cmisService.GetTypeDefinitionAsync(typeId);
-            if (type == null)
+            // Merges the fixed system properties with any DB-driven custom
+            // TypePropertyDefinitions for this type.
+            var typeDefinition = await _cmisService.GetTypeDefinitionAsync(typeId);
+            if (typeDefinition == null)
             {
                 return NotFound(new { exception = "objectNotFound", message = $"Type '{typeId}' was not found." });
             }
 
-            return Ok(CmisTypeDefinition.FromCmisType(type));
+            return Ok(typeDefinition);
         }
 
         if (string.Equals(cmisselector, "query", StringComparison.OrdinalIgnoreCase))
@@ -93,7 +95,7 @@ public class CmisController : ControllerBase
     {
         if (string.Equals(cmisselector, "children", StringComparison.OrdinalIgnoreCase))
         {
-            var children = await _cmisService.GetChildrenAsync(objectId);
+            var children = await _cmisService.GetChildrenEnvelopesAsync(objectId);
             return Ok(new { objects = children });
         }
 
@@ -111,21 +113,26 @@ public class CmisController : ControllerBase
 
         if (string.Equals(cmisselector, "parents", StringComparison.OrdinalIgnoreCase))
         {
-            var parents = await _cmisService.GetParentsAsync(objectId);
+            var parents = await _cmisService.GetParentsEnvelopesAsync(objectId);
             return Ok(new { objects = parents });
         }
 
-        var cmisObject = await _cmisService.GetObjectByIdAsync(objectId);
-        if (cmisObject == null)
+        var envelope = await _cmisService.GetObjectEnvelopeAsync(objectId);
+        if (envelope == null)
         {
             return NotFound(new { exception = "objectNotFound", message = $"Object with ID '{objectId}' was not found." });
         }
 
-        return Ok(cmisObject);
+        return Ok(envelope);
     }
 
     // POST /browser/{repositoryId}/{objectId}
-    // cmisaction=createDocument|createFolder|update|move|delete|deleteTree
+    // cmisaction=createDocument|createFolder|update|move|delete|deleteTree|setContentStream
+    //
+    // 'properties' is an optional form field containing a JSON object of custom
+    // property id -> value (or array of values for multi-valued properties), e.g.
+    // properties={"custom:department":"Finance"}. A null/empty value clears the
+    // property on update ("vider une propriété").
     [HttpPost("{repositoryId}/{objectId}")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> PostObject(
@@ -134,6 +141,7 @@ public class CmisController : ControllerBase
         [FromForm] string cmisaction,
         [FromForm] string? name,
         [FromForm] string? targetFolderId,
+        [FromForm] string? properties,
         IFormFile? file)
     {
         if (string.Equals(cmisaction, "delete", StringComparison.OrdinalIgnoreCase))
@@ -165,13 +173,29 @@ public class CmisController : ControllerBase
 
         if (string.Equals(cmisaction, "update", StringComparison.OrdinalIgnoreCase))
         {
-            if (string.IsNullOrWhiteSpace(name))
+            if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(properties))
             {
-                return BadRequest(new { exception = "invalidArgument", message = "'name' is required for update action." });
+                return BadRequest(new { exception = "invalidArgument", message = "Provide 'name' and/or 'properties' for update action." });
             }
 
-            var updated = await _cmisService.UpdateObjectAsync(objectId, name);
+            var updated = await _cmisService.UpdateObjectAsync(objectId, name, properties);
             return Ok(updated);
+        }
+
+        if (string.Equals(cmisaction, "setContentStream", StringComparison.OrdinalIgnoreCase))
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { exception = "invalidArgument", message = "File content is required for setContentStream action." });
+            }
+
+            using var replaceStream = new MemoryStream();
+            await file.CopyToAsync(replaceStream);
+
+            var updatedDoc = await _cmisService.SetContentStreamAsync(
+                objectId, file.ContentType ?? "application/octet-stream", replaceStream.ToArray());
+
+            return Ok(updatedDoc);
         }
 
         if (string.Equals(cmisaction, "move", StringComparison.OrdinalIgnoreCase))
@@ -201,7 +225,7 @@ public class CmisController : ControllerBase
             var fileBytes = memoryStream.ToArray();
 
             var createdDoc = await _cmisService.CreateDocumentAsync(
-                objectId, docName, file.ContentType ?? "application/octet-stream", fileBytes);
+                objectId, docName, file.ContentType ?? "application/octet-stream", fileBytes, properties);
 
             return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdDoc.Id }, createdDoc);
         }
@@ -213,7 +237,7 @@ public class CmisController : ControllerBase
                 return BadRequest(new { exception = "invalidArgument", message = "Folder name is required for createFolder action." });
             }
 
-            var createdFolder = await _cmisService.CreateFolderAsync(objectId, name);
+            var createdFolder = await _cmisService.CreateFolderAsync(objectId, name, properties);
             return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdFolder.Id }, createdFolder);
         }
 
