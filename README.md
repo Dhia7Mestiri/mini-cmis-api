@@ -58,6 +58,18 @@ Role model: **Admin** (full access, including delete/deleteTree), **Manager** (c
 
 Automatic seeding populates the database on first run with the base CMIS type definitions and a root folder.
 
+### CMIS Property System
+
+- System and custom CMIS property definitions
+- Per-type custom property definitions
+- Single and multi-valued properties
+- Required property validation
+- Read-only/updatability validation
+- Custom property values persisted per object
+- CMIS property envelopes for object responses
+- Custom property updates and cleanup on deletion
+- CMIS-SQL filtering against custom properties
+
 ---
 
 ## 🛠️ Architecture & Tech Stack
@@ -129,9 +141,28 @@ docker compose up --build
 
 ## 🧪 Testing
 
-An xUnit test project (`tests/CMIS_IyaSoft.Tests`) covers:
-- Integration tests against real endpoints (`/health`, `/browser`, `/auth/register`, `/auth/login`) via `WebApplicationFactory`, using EF Core InMemory in place of the real database
-- Unit tests for `CmisService` covering folder/document creation, duplicate-name rejection, hierarchy queries, and deletion rules
+A dedicated xUnit test project (`tests/CMIS_IyaSoft.Tests`) provides both unit and integration coverage.
+
+- **Unit tests** for `CmisService`, covering:
+  - Folder and document creation
+  - Duplicate-name validation
+  - Rename, move, and hierarchy/path updates
+  - Single and recursive deletion
+  - CMIS-SQL querying and pagination
+  - Custom property definitions and values
+  - Required, read-only, and multi-value property validation
+  - CMIS property envelopes
+  - Custom property updates and cleanup
+  - Content stream replacement
+
+- **Integration tests** using `WebApplicationFactory<Program>` and EF Core InMemory, covering:
+  - Health endpoint
+  - Repository and Browser Binding endpoints
+  - Authentication and authorization
+  - Type definitions
+  - CMIS object/property envelope responses
+
+Run the complete test suite with:
 
 ```bash
 dotnet test
