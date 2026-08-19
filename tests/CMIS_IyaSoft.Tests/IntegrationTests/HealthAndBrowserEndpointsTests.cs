@@ -143,6 +143,91 @@ public class HealthAndBrowserEndpointsTests : IClassFixture<CustomWebApplication
         var content = await response.Content.ReadAsStringAsync();
         content.Should().Contain("invalidArgument");
     }
+    [Fact]
+    public async Task Browser_Document_TypeDefinition_Contains_Custom_Department_Property()
+    {
+        var response = await _client.GetAsync(
+            "/browser?cmisselector=typeDefinition&typeId=cmis:document");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var content =
+            await response.Content.ReadAsStringAsync();
+
+        content.Should().Contain("custom:department");
+        content.Should().Contain("department");
+    }
+
+    [Fact]
+    public async Task Browser_Folder_TypeDefinition_Contains_Custom_Owner_Property()
+    {
+        var response = await _client.GetAsync(
+            "/browser?cmisselector=typeDefinition&typeId=cmis:folder");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var content =
+            await response.Content.ReadAsStringAsync();
+
+        content.Should().Contain("custom:owner");
+    }
+
+    [Fact]
+    public async Task Browser_Object_Returns_Cmis_Property_Envelope()
+    {
+        var token =
+            await RegisterLoginAndAssignRoleAsync("User");
+
+        var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/browser/{RepoId}/doc-101");
+
+        request.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer",
+                token);
+
+        var response =
+            await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var content =
+            await response.Content.ReadAsStringAsync();
+
+        content.Should().Contain("\"properties\"");
+        content.Should().Contain("cmis:name");
+        content.Should().Contain("cmis:lastModificationDate");
+        content.Should().Contain("cmis:contentStreamLength");
+    }
+
+    [Fact]
+    public async Task Browser_Children_Returns_Property_Envelopes()
+    {
+        var token =
+            await RegisterLoginAndAssignRoleAsync("User");
+
+        var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/browser/{RepoId}/{RootFolderId}?cmisselector=children");
+
+        request.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer",
+                token);
+
+        var response =
+            await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var content =
+            await response.Content.ReadAsStringAsync();
+
+        content.Should().Contain("\"objects\"");
+        content.Should().Contain("\"properties\"");
+        content.Should().Contain("cmis:name");
+    }
 
     // Registers + logs in a user, then assigns a role directly via UserManager
     // (bypassing HTTP - there's intentionally no public "assign yourself a role"

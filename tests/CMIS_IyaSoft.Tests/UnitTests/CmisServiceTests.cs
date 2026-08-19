@@ -405,4 +405,531 @@ public class CmisServiceTests : IDisposable
 
         Assert.Equal("b.txt", results.First().Name);
     }
+    // ---------------- Custom property definitions ----------------
+
+    private async Task SeedDocumentPropertyAsync(
+        string propertyId,
+        string localName,
+        string propertyType = "string",
+        string cardinality = "single",
+        string updatability = "readwrite",
+        bool required = false)
+    {
+        _context.TypePropertyDefinitions.Add(new TypePropertyDefinition
+        {
+            TypeId = "cmis:document",
+            PropertyId = propertyId,
+            LocalName = localName,
+            PropertyType = propertyType,
+            Cardinality = cardinality,
+            Updatability = updatability,
+            Required = required
+        });
+
+        await _context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task GetTypeDefinitionAsync_Includes_Custom_Property_Definition()
+    {
+        _context.Types.Add(new CmisType
+        {
+            Id = "cmis:document",
+            BaseId = "cmis:document",
+            DisplayName = "Document",
+            Description = "Document"
+        });
+
+        await SeedDocumentPropertyAsync(
+            "custom:department",
+            "department");
+
+        await _context.SaveChangesAsync();
+
+        var definition =
+            await _sut.GetTypeDefinitionAsync("cmis:document");
+
+        Assert.NotNull(definition);
+
+        var property = definition!.PropertyDefinitions
+            .SingleOrDefault(p => p.Id == "custom:department");
+
+        Assert.NotNull(property);
+
+        Assert.Equal("custom:department", property!.Id);
+        Assert.Equal("department", property.LocalName);
+        Assert.Equal("string", property.PropertyType);
+        Assert.Equal("single", property.Cardinality);
+    }
+    [Fact]
+    public async Task CreateDocumentAsync_Stores_Custom_Property()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await SeedDocumentPropertyAsync(
+            "custom:department",
+            "department");
+
+        var document = await _sut.CreateDocumentAsync(
+            root.Id,
+            "invoice.txt",
+            "text/plain",
+            new byte[] { 1, 2, 3 },
+            """
+        {
+            "custom:department": "Finance"
+        }
+        """);
+
+        var property = await _context.ObjectProperties
+            .SingleAsync(p =>
+                p.ObjectId == document.Id &&
+                p.PropertyId == "custom:department");
+
+        Assert.Equal("Finance", property.Value);
+        Assert.Equal("string", property.PropertyType);
+        Assert.Equal("single", property.Cardinality);
+    }
+
+    [Fact]
+    public async Task CreateDocumentAsync_Rejects_Unknown_Custom_Property()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await SeedDocumentPropertyAsync(
+            "custom:department",
+            "department");
+
+        var exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _sut.CreateDocumentAsync(
+                    root.Id,
+                    "invoice.txt",
+                    "text/plain",
+                    new byte[] { 1 },
+                    """
+                {
+                    "custom:doesNotExist": "value"
+                }
+                """));
+
+        Assert.Contains("Unknown property", exception.Message);
+    }
+
+    [Fact]
+    public async Task CreateDocumentAsync_Rejects_Readonly_Custom_Property()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await SeedDocumentPropertyAsync(
+            "custom:reference",
+            "reference",
+            updatability: "readonly");
+
+        var exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _sut.CreateDocumentAsync(
+                    root.Id,
+                    "invoice.txt",
+                    "text/plain",
+                    new byte[] { 1 },
+                    """
+                {
+                    "custom:reference": "REF-001"
+                }
+                """));
+
+        Assert.Contains("read-only", exception.Message);
+    }
+
+    [Fact]
+    public async Task CreateDocumentAsync_Rejects_Missing_Required_Property()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await SeedDocumentPropertyAsync(
+            "custom:department",
+            "department",
+            required: true);
+
+        var exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _sut.CreateDocumentAsync(
+                    root.Id,
+                    "invoice.txt",
+                    "text/plain",
+                    new byte[] { 1 }));
+
+        Assert.Contains(
+            "custom:department",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task CreateDocumentAsync_Stores_MultiValue_Property_In_Order()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await SeedDocumentPropertyAsync(
+            "custom:tags",
+            "tags",
+            cardinality: "multi");
+
+        var document = await _sut.CreateDocumentAsync(
+            root.Id,
+            "file.txt",
+            "text/plain",
+            new byte[] { 1 },
+            """
+        {
+            "custom:tags": ["cloud", "cmis", "dotnet"]
+        }
+        """);
+
+        var values = await _context.ObjectProperties
+            .Where(p =>
+                p.ObjectId == document.Id &&
+                p.PropertyId == "custom:tags")
+            .OrderBy(p => p.SortOrder)
+            .Select(p => p.Value)
+            .ToListAsync();
+
+        Assert.Equal(
+            new[] { "cloud", "cmis", "dotnet" },
+            values);
+    }
+
+    [Fact]
+    public async Task CreateDocumentAsync_Rejects_Single_Value_For_Multi_Property()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await SeedDocumentPropertyAsync(
+            "custom:tags",
+            "tags",
+            cardinality: "multi");
+
+        var exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _sut.CreateDocumentAsync(
+                    root.Id,
+                    "file.txt",
+                    "text/plain",
+                    new byte[] { 1 },
+                    """
+                {
+                    "custom:tags": "cloud"
+                }
+                """));
+
+        Assert.Contains(
+            "expects a JSON array",
+            exception.Message);
+    }
+
+    // ---------------- Property envelopes ----------------
+
+    [Fact]
+    public async Task GetObjectEnvelopeAsync_Returns_System_Properties()
+    {
+        var root = await SeedRootFolderAsync();
+
+        var document = await _sut.CreateDocumentAsync(
+            root.Id,
+            "hello.txt",
+            "text/plain",
+            new byte[] { 1, 2, 3 });
+
+        var envelope =
+            await _sut.GetObjectEnvelopeAsync(document.Id);
+
+        Assert.NotNull(envelope);
+
+        Assert.Equal(document.Id, envelope!.Id);
+        Assert.Equal("hello.txt", envelope.Name);
+
+        Assert.True(
+            envelope.Properties.ContainsKey("cmis:name"));
+
+        Assert.True(
+            envelope.Properties.ContainsKey(
+                "cmis:lastModificationDate"));
+
+        Assert.True(
+            envelope.Properties.ContainsKey(
+                "cmis:contentStreamLength"));
+
+        Assert.Equal(
+            3L,
+            envelope.Properties[
+                "cmis:contentStreamLength"].Value);
+    }
+
+    [Fact]
+    public async Task GetObjectEnvelopeAsync_Returns_Custom_Property()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await SeedDocumentPropertyAsync(
+            "custom:department",
+            "department");
+
+        var document = await _sut.CreateDocumentAsync(
+            root.Id,
+            "invoice.txt",
+            "text/plain",
+            new byte[] { 1 },
+            """
+        {
+            "custom:department": "Finance"
+        }
+        """);
+
+        var envelope =
+            await _sut.GetObjectEnvelopeAsync(document.Id);
+
+        Assert.NotNull(envelope);
+
+        Assert.True(
+            envelope!.Properties
+                .ContainsKey("custom:department"));
+
+        var property =
+            envelope.Properties["custom:department"];
+
+        Assert.Equal("Finance", property.Value);
+        Assert.Equal("department", property.LocalName);
+        Assert.Equal("string", property.Type);
+        Assert.Equal("single", property.Cardinality);
+    }
+
+    [Fact]
+    public async Task GetChildrenEnvelopesAsync_Returns_Children_With_Properties()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await _sut.CreateDocumentAsync(
+            root.Id,
+            "one.txt",
+            "text/plain",
+            new byte[] { 1, 2 });
+
+        await _sut.CreateDocumentAsync(
+            root.Id,
+            "two.txt",
+            "text/plain",
+            new byte[] { 1, 2, 3 });
+
+        var children =
+            (await _sut.GetChildrenEnvelopesAsync(root.Id))
+            .ToList();
+
+        Assert.Equal(2, children.Count);
+
+        Assert.All(children, child =>
+        {
+            Assert.True(
+                child.Properties.ContainsKey("cmis:name"));
+
+            Assert.True(
+                child.Properties.ContainsKey(
+                    "cmis:contentStreamLength"));
+        });
+    }
+
+    // ---------------- Custom property updates ----------------
+
+    [Fact]
+    public async Task UpdateObjectAsync_Updates_Custom_Property()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await SeedDocumentPropertyAsync(
+            "custom:department",
+            "department");
+
+        var document = await _sut.CreateDocumentAsync(
+            root.Id,
+            "invoice.txt",
+            "text/plain",
+            new byte[] { 1 },
+            """
+        {
+            "custom:department": "Finance"
+        }
+        """);
+
+        await _sut.UpdateObjectAsync(
+            document.Id,
+            null,
+            """
+        {
+            "custom:department": "Engineering"
+        }
+        """);
+
+        var property = await _context.ObjectProperties
+            .SingleAsync(p =>
+                p.ObjectId == document.Id &&
+                p.PropertyId == "custom:department");
+
+        Assert.Equal("Engineering", property.Value);
+    }
+
+    [Fact]
+    public async Task UpdateObjectAsync_Clears_Custom_Property_When_Value_Is_Null()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await SeedDocumentPropertyAsync(
+            "custom:department",
+            "department");
+
+        var document = await _sut.CreateDocumentAsync(
+            root.Id,
+            "invoice.txt",
+            "text/plain",
+            new byte[] { 1 },
+            """
+        {
+            "custom:department": "Finance"
+        }
+        """);
+
+        await _sut.UpdateObjectAsync(
+            document.Id,
+            null,
+            """
+        {
+            "custom:department": null
+        }
+        """);
+
+        Assert.False(
+            await _context.ObjectProperties.AnyAsync(
+                p =>
+                    p.ObjectId == document.Id &&
+                    p.PropertyId == "custom:department"));
+    }
+
+    // ---------------- SetContentStreamAsync ----------------
+
+    [Fact]
+    public async Task SetContentStreamAsync_Replaces_Content_MimeType_And_Length()
+    {
+        var root = await SeedRootFolderAsync();
+
+        var document = await _sut.CreateDocumentAsync(
+            root.Id,
+            "file.txt",
+            "text/plain",
+            new byte[] { 1 });
+
+        var newContent =
+            new byte[] { 10, 20, 30, 40 };
+
+        var updated =
+            await _sut.SetContentStreamAsync(
+                document.Id,
+                "application/octet-stream",
+                newContent);
+
+        Assert.Equal(newContent, updated.ContentStream);
+
+        Assert.Equal(
+            "application/octet-stream",
+            updated.MimeType);
+
+        Assert.Equal(
+            newContent.Length,
+            updated.ContentStreamLength);
+    }
+
+    [Fact]
+    public async Task SetContentStreamAsync_Rejects_Folder()
+    {
+        var root = await SeedRootFolderAsync();
+
+        var folder =
+            await _sut.CreateFolderAsync(root.Id, "Folder");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _sut.SetContentStreamAsync(
+                folder.Id,
+                "text/plain",
+                new byte[] { 1 }));
+    }
+
+    // ---------------- Custom property query ----------------
+
+    [Fact]
+    public async Task ExecuteQueryAsync_Filters_By_Custom_Property()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await SeedDocumentPropertyAsync(
+            "custom:department",
+            "department");
+
+        await _sut.CreateDocumentAsync(
+            root.Id,
+            "finance.txt",
+            "text/plain",
+            new byte[] { 1 },
+            """
+        {
+            "custom:department": "Finance"
+        }
+        """);
+
+        await _sut.CreateDocumentAsync(
+            root.Id,
+            "engineering.txt",
+            "text/plain",
+            new byte[] { 1 },
+            """
+        {
+            "custom:department": "Engineering"
+        }
+        """);
+
+        var (results, count, _) =
+            await _sut.ExecuteQueryAsync(
+                "SELECT * FROM cmis:document WHERE custom:department = 'Finance'");
+
+        Assert.Equal(1, count);
+
+        Assert.Equal(
+            "finance.txt",
+            results.Single().Name);
+    }
+
+    // ---------------- Delete custom properties ----------------
+
+    [Fact]
+    public async Task DeleteObjectAsync_Deletes_Custom_Property_Rows()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await SeedDocumentPropertyAsync(
+            "custom:department",
+            "department");
+
+        var document = await _sut.CreateDocumentAsync(
+            root.Id,
+            "invoice.txt",
+            "text/plain",
+            new byte[] { 1 },
+            """
+        {
+            "custom:department": "Finance"
+        }
+        """);
+
+        await _sut.DeleteObjectAsync(document.Id);
+
+        Assert.False(
+            await _context.ObjectProperties.AnyAsync(
+                p => p.ObjectId == document.Id));
+    }
 }

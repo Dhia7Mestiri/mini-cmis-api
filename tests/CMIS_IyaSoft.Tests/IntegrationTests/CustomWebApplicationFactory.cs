@@ -3,35 +3,23 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace CMIS_IyaSoft.Tests.IntegrationTests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
-    // Generated ONCE per factory instance (xUnit shares one factory per test class
-    // via IClassFixture) and captured in the closure below - NOT inside the options
-    // lambda. AddDbContext's options callback re-runs on every DbContext resolution
-    // (every HTTP request gets its own DI scope -> new DbContext -> lambda re-runs).
-    // A Guid generated inside that lambda would give every request its own empty
-    // in-memory store, silently orphaning the app's own startup seed data.
     private readonly string _dbName = $"TestDb_{Guid.NewGuid()}";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // Program.cs branches on IsProduction() / this env var to decide between
-        // Database.MigrateAsync() (relational-only, throws on the InMemory provider)
-        // and Database.EnsureCreatedAsync() (works with InMemory). Setting this
-        // forces the EnsureCreatedAsync path without needing "Production" as the
-        // ASP.NET Core environment name (which would also suppress dev-only
-        // middleware like the Swagger UI and detailed exception pages).
-        Environment.SetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER", "true");
-
         builder.UseEnvironment("Testing");
 
         builder.ConfigureServices(services =>
         {
             var descriptor = services.SingleOrDefault(
                 d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));
+
             if (descriptor is not null)
             {
                 services.Remove(descriptor);
@@ -42,5 +30,26 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 options.UseInMemoryDatabase(_dbName);
             });
         });
+    }
+
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var host = base.CreateHost(builder);
+
+        using var scope = host.Services.CreateScope();
+
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        context.Database.EnsureCreated();
+
+        // Program's relational migration/bootstrap path is intentionally bypassed
+        // by the InMemory provider, so seed the test database explicitly.
+        DbInitializer.Initialize(context);
+
+        DbSeeder.SeedRolesAndUsersAsync(scope.ServiceProvider)
+            .GetAwaiter()
+            .GetResult();
+
+        return host;
     }
 }
