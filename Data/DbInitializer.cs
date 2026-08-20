@@ -7,87 +7,238 @@ public static class DbInitializer
 {
     public static void Initialize(AppDbContext context)
     {
-        // Ensure SQL Server database is created
         context.Database.EnsureCreated();
 
-        if (!context.Types.Any())
+        // =========================================================
+        // BASE CMIS TYPES
+        // =========================================================
+
+        if (!context.Types.Any(t => t.Id == "cmis:folder"))
         {
-            context.Types.AddRange(
-                new CmisType { Id = "cmis:folder", BaseId = "cmis:folder", DisplayName = "Folder", Description = "CMIS Folder Type" },
-                new CmisType { Id = "cmis:document", BaseId = "cmis:document", DisplayName = "Document", Description = "CMIS Document Type" }
-            );
+            context.Types.Add(new CmisType
+            {
+                Id = "cmis:folder",
+                BaseId = "cmis:folder",
+                DisplayName = "Folder",
+                Description = "CMIS Folder Type",
+                ParentTypeId = null
+            });
+        }
+
+        if (!context.Types.Any(t => t.Id == "cmis:document"))
+        {
+            context.Types.Add(new CmisType
+            {
+                Id = "cmis:document",
+                BaseId = "cmis:document",
+                DisplayName = "Document",
+                Description = "CMIS Document Type",
+                ParentTypeId = null
+            });
+        }
+
+        context.SaveChanges();
+
+
+        // =========================================================
+        // CUSTOM TYPE HIERARCHY
+        //
+        // cmis:document
+        //      |
+        //      └── custom:financialDocument
+        //              |
+        //              ├── custom:facture
+        //              └── custom:loan
+        // =========================================================
+
+        if (!context.Types.Any(t => t.Id == "custom:financialDocument"))
+        {
+            context.Types.Add(new CmisType
+            {
+                Id = "custom:financialDocument",
+                BaseId = "cmis:document",
+                DisplayName = "Financial Document",
+                Description = "Base type for financial documents",
+                ParentTypeId = "cmis:document"
+            });
+
             context.SaveChanges();
         }
 
-        if (!context.Objects.Any())
+        if (!context.Types.Any(t => t.Id == "custom:facture"))
         {
-            var rootFolder = new CmisObject
+            context.Types.Add(new CmisType
             {
-                Id = "root-folder",
-                Name = "Root",
+                Id = "custom:facture",
+                BaseId = "cmis:document",
+                DisplayName = "Facture",
+                Description = "Invoice document type",
+                ParentTypeId = "custom:financialDocument"
+            });
+        }
+
+        if (!context.Types.Any(t => t.Id == "custom:loan"))
+        {
+            context.Types.Add(new CmisType
+            {
+                Id = "custom:loan",
+                BaseId = "cmis:document",
+                DisplayName = "Loan",
+                Description = "Loan document type",
+                ParentTypeId = "custom:financialDocument"
+            });
+        }
+
+        context.SaveChanges();
+
+
+        // =========================================================
+        // FINANCIAL DOCUMENT PROPERTIES
+        // inherited by Facture + Loan
+        // =========================================================
+
+        AddPropertyIfMissing(
+            context,
+            new TypePropertyDefinition
+            {
+                TypeId = "custom:financialDocument",
+                PropertyId = "custom:amount",
+                LocalName = "amount",
+                PropertyType = "integer",
+                Cardinality = "single",
+                Updatability = "readwrite",
+                Required = false
+            });
+
+        AddPropertyIfMissing(
+            context,
+            new TypePropertyDefinition
+            {
+                TypeId = "custom:financialDocument",
+                PropertyId = "custom:currency",
+                LocalName = "currency",
+                PropertyType = "string",
+                Cardinality = "single",
+                Updatability = "readwrite",
+                Required = false
+            });
+
+
+        // =========================================================
+        // FACTURE PROPERTIES
+        // =========================================================
+
+        AddPropertyIfMissing(
+            context,
+            new TypePropertyDefinition
+            {
+                TypeId = "custom:facture",
+                PropertyId = "custom:invoiceNumber",
+                LocalName = "invoiceNumber",
+                PropertyType = "string",
+                Cardinality = "single",
+                Updatability = "readwrite",
+                Required = true
+            });
+
+        AddPropertyIfMissing(
+            context,
+            new TypePropertyDefinition
+            {
+                TypeId = "custom:facture",
+                PropertyId = "custom:invoiceDate",
+                LocalName = "invoiceDate",
+                PropertyType = "datetime",
+                Cardinality = "single",
+                Updatability = "readwrite",
+                Required = false
+            });
+
+
+        // =========================================================
+        // LOAN PROPERTIES
+        // =========================================================
+
+        AddPropertyIfMissing(
+            context,
+            new TypePropertyDefinition
+            {
+                TypeId = "custom:loan",
+                PropertyId = "custom:interestRate",
+                LocalName = "interestRate",
+                PropertyType = "integer",
+                Cardinality = "single",
+                Updatability = "readwrite",
+                Required = false
+            });
+
+        AddPropertyIfMissing(
+            context,
+            new TypePropertyDefinition
+            {
+                TypeId = "custom:loan",
+                PropertyId = "custom:duration",
+                LocalName = "duration",
+                PropertyType = "integer",
+                Cardinality = "single",
+                Updatability = "readwrite",
+                Required = false
+            });
+
+
+        // =========================================================
+        // FOLDER PROPERTY
+        // =========================================================
+
+        AddPropertyIfMissing(
+            context,
+            new TypePropertyDefinition
+            {
                 TypeId = "cmis:folder",
-                ParentId = null,
-                Path = "/"
-            };
+                PropertyId = "custom:owner",
+                LocalName = "owner",
+                PropertyType = "string",
+                Cardinality = "single",
+                Updatability = "readwrite",
+                Required = false
+            });
 
-            var sampleDoc = new CmisObject
-            {
-                Id = "doc-101",
-                Name = "Welcome.txt",
-                TypeId = "cmis:document",
-                ParentId = "root-folder",
-                Path = "/Welcome.txt",
-                MimeType = "text/plain",
-                ContentStream = System.Text.Encoding.UTF8.GetBytes("Welcome to MiniCMIS API Server!"),
-                ContentStreamLength = 31
-            };
+        context.SaveChanges();
+    }
 
-            context.Objects.AddRange(rootFolder, sampleDoc);
-            context.SaveChanges();
-        }
 
-        if (!context.TypePropertyDefinitions.Any())
+    private static void AddPropertyIfMissing(
+        AppDbContext context,
+        TypePropertyDefinition definition)
+    {
+        var exists = context.TypePropertyDefinitions.Any(p =>
+            p.TypeId == definition.TypeId &&
+            p.PropertyId == definition.PropertyId);
+
+        if (!exists)
         {
-            // One demo custom property per type, proving the mechanism end to end.
-            // Add more rows here (or expose an admin endpoint later) as real needs show up.
-            context.TypePropertyDefinitions.AddRange(
-                new TypePropertyDefinition
-                {
-                    TypeId = "cmis:document",
-                    PropertyId = "custom:department",
-                    LocalName = "department",
-                    PropertyType = "string",
-                    Cardinality = "single",
-                    Updatability = "readwrite",
-                    Required = false
-                },
-                new TypePropertyDefinition
-                {
-                    TypeId = "cmis:folder",
-                    PropertyId = "custom:owner",
-                    LocalName = "owner",
-                    PropertyType = "string",
-                    Cardinality = "single",
-                    Updatability = "readwrite",
-                    Required = false
-                }
-            );
-            context.SaveChanges();
+            context.TypePropertyDefinitions.Add(definition);
         }
     }
+
 
     /// <summary>
-    /// Additive-only: creates ObjectProperties and TypePropertyDefinitions if they
-    /// don't exist yet. Safe to call on every startup - never touches Objects,
-    /// Types, or Identity tables. Needed for Postgres/prod, which bootstraps via
-    /// EnsureCreated instead of migrations (see MigrateAsync path for SQL Server,
-    /// which picks these up through a normal EF migration instead).
+    /// Additive production/PostgreSQL schema setup.
+    /// Safe to call on every startup.
     /// </summary>
-    public static async Task EnsureCustomPropertyTablesAsync(AppDbContext context)
+    public static async Task EnsureCustomPropertyTablesAsync(
+        AppDbContext context)
     {
-        await context.Database.ExecuteSqlRawAsync(ObjectPropertiesTableSql);
-        await context.Database.ExecuteSqlRawAsync(TypePropertyDefinitionsTableSql);
+        await context.Database.ExecuteSqlRawAsync(
+            ObjectPropertiesTableSql);
+
+        await context.Database.ExecuteSqlRawAsync(
+            TypePropertyDefinitionsTableSql);
+
+        await context.Database.ExecuteSqlRawAsync(
+            TypeInheritanceSql);
     }
+
 
     private const string ObjectPropertiesTableSql = @"
         CREATE TABLE IF NOT EXISTS ""ObjectProperties"" (
@@ -99,8 +250,12 @@ public static class DbInitializer
             ""Value"" TEXT NOT NULL,
             ""SortOrder"" INTEGER NOT NULL DEFAULT 0
         );
-        CREATE INDEX IF NOT EXISTS ix_objectproperties_objectid ON ""ObjectProperties"" (""ObjectId"");
+
+        CREATE INDEX IF NOT EXISTS
+        ix_objectproperties_objectid
+        ON ""ObjectProperties"" (""ObjectId"");
     ";
+
 
     private const string TypePropertyDefinitionsTableSql = @"
         CREATE TABLE IF NOT EXISTS ""TypePropertyDefinitions"" (
@@ -113,6 +268,34 @@ public static class DbInitializer
             ""Updatability"" TEXT NOT NULL,
             ""Required"" BOOLEAN NOT NULL DEFAULT FALSE
         );
-        CREATE INDEX IF NOT EXISTS ix_typepropertydefinitions_typeid ON ""TypePropertyDefinitions"" (""TypeId"");
+
+        CREATE INDEX IF NOT EXISTS
+        ix_typepropertydefinitions_typeid
+        ON ""TypePropertyDefinitions"" (""TypeId"");
+    ";
+
+
+    private const string TypeInheritanceSql = @"
+        ALTER TABLE ""Types""
+        ADD COLUMN IF NOT EXISTS ""ParentTypeId"" TEXT NULL;
+
+        CREATE INDEX IF NOT EXISTS
+        ""IX_Types_ParentTypeId""
+        ON ""Types"" (""ParentTypeId"");
+
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'FK_Types_Types_ParentTypeId'
+            ) THEN
+                ALTER TABLE ""Types""
+                ADD CONSTRAINT ""FK_Types_Types_ParentTypeId""
+                FOREIGN KEY (""ParentTypeId"")
+                REFERENCES ""Types"" (""Id"")
+                ON DELETE RESTRICT;
+            END IF;
+        END $$;
     ";
 }

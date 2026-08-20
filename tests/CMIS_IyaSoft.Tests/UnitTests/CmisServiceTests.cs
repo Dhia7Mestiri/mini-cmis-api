@@ -20,10 +20,36 @@ public class CmisServiceTests : IDisposable
             .Options;
 
         _context = new AppDbContext(options);
+
+        SeedBaseTypes();
+
         _sut = new CmisService(_context);
     }
 
     public void Dispose() => _context.Dispose();
+
+    private void SeedBaseTypes()
+    {
+        _context.Types.AddRange(
+            new CmisType
+            {
+                Id = "cmis:folder",
+                BaseId = "cmis:folder",
+                DisplayName = "Folder",
+                Description = "CMIS Folder Type",
+                ParentTypeId = null
+            },
+            new CmisType
+            {
+                Id = "cmis:document",
+                BaseId = "cmis:document",
+                DisplayName = "Document",
+                Description = "CMIS Document Type",
+                ParentTypeId = null
+            });
+
+        _context.SaveChanges();
+    }
 
     private async Task<CmisObject> SeedRootFolderAsync()
     {
@@ -33,8 +59,12 @@ public class CmisServiceTests : IDisposable
             Name = "root-folder",
             TypeId = "cmis:folder",
             ParentId = null,
-            Path = "/"
+            Path = "/",
+            CreatedBy = "test",
+            CreationDate = DateTime.UtcNow,
+            LastModificationDate = DateTime.UtcNow
         };
+
         _context.Objects.Add(root);
         await _context.SaveChangesAsync();
         return root;
@@ -87,7 +117,11 @@ public class CmisServiceTests : IDisposable
         var root = await SeedRootFolderAsync();
         var bytes = System.Text.Encoding.UTF8.GetBytes("hello world");
 
-        var doc = await _sut.CreateDocumentAsync(root.Id, "notes.txt", "text/plain", bytes);
+        var doc = await _sut.CreateDocumentAsync(
+            root.Id,
+            "notes.txt",
+            "text/plain",
+            bytes);
 
         Assert.Equal("notes.txt", doc.Name);
         Assert.Equal("cmis:document", doc.TypeId);
@@ -100,10 +134,47 @@ public class CmisServiceTests : IDisposable
     public async Task CreateDocumentAsync_Throws_When_Name_Already_Exists_In_Same_Parent()
     {
         var root = await SeedRootFolderAsync();
-        await _sut.CreateDocumentAsync(root.Id, "notes.txt", "text/plain", new byte[] { 1 });
+
+        await _sut.CreateDocumentAsync(
+            root.Id,
+            "notes.txt",
+            "text/plain",
+            new byte[] { 1 });
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sut.CreateDocumentAsync(root.Id, "notes.txt", "text/plain", new byte[] { 2 }));
+            () => _sut.CreateDocumentAsync(
+                root.Id,
+                "notes.txt",
+                "text/plain",
+                new byte[] { 2 }));
+    }
+
+    [Fact]
+    public async Task CreateDocumentAsync_Throws_When_Type_Does_Not_Exist()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => _sut.CreateDocumentAsync(
+                root.Id,
+                "bad.txt",
+                "text/plain",
+                new byte[] { 1 },
+                "custom:missing"));
+    }
+
+    [Fact]
+    public async Task CreateDocumentAsync_Rejects_Folder_Type()
+    {
+        var root = await SeedRootFolderAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _sut.CreateDocumentAsync(
+                root.Id,
+                "bad.txt",
+                "text/plain",
+                new byte[] { 1 },
+                "cmis:folder"));
     }
 
     // ---------------- GetChildrenAsync ----------------
@@ -112,18 +183,27 @@ public class CmisServiceTests : IDisposable
     public async Task GetChildrenAsync_Returns_Only_Direct_Children()
     {
         var root = await SeedRootFolderAsync();
+
         await _sut.CreateFolderAsync(root.Id, "A");
         await _sut.CreateFolderAsync(root.Id, "B");
-        var nestedParent = await _sut.CreateFolderAsync(root.Id, "C");
-        await _sut.CreateFolderAsync(nestedParent.Id, "Grandchild - should not appear");
 
-        var children = await _sut.GetChildrenAsync(root.Id);
+        var nestedParent =
+            await _sut.CreateFolderAsync(root.Id, "C");
+
+        await _sut.CreateFolderAsync(
+            nestedParent.Id,
+            "Grandchild - should not appear");
+
+        var children =
+            await _sut.GetChildrenAsync(root.Id);
 
         Assert.Equal(3, children.Count());
         Assert.Contains(children, c => c.Name == "A");
         Assert.Contains(children, c => c.Name == "B");
         Assert.Contains(children, c => c.Name == "C");
-        Assert.DoesNotContain(children, c => c.Name.Contains("Grandchild"));
+        Assert.DoesNotContain(
+            children,
+            c => c.Name.Contains("Grandchild"));
     }
 
     // ---------------- UpdateObjectAsync (rename) ----------------
@@ -132,9 +212,13 @@ public class CmisServiceTests : IDisposable
     public async Task UpdateObjectAsync_Renames_Object_And_Updates_Own_Path()
     {
         var root = await SeedRootFolderAsync();
-        var folder = await _sut.CreateFolderAsync(root.Id, "OldName");
+        var folder =
+            await _sut.CreateFolderAsync(root.Id, "OldName");
 
-        var renamed = await _sut.UpdateObjectAsync(folder.Id, "NewName");
+        var renamed =
+            await _sut.UpdateObjectAsync(
+                folder.Id,
+                "NewName");
 
         Assert.Equal("NewName", renamed.Name);
         Assert.Equal("/NewName", renamed.Path);
@@ -144,17 +228,37 @@ public class CmisServiceTests : IDisposable
     public async Task UpdateObjectAsync_Rewrites_Descendant_Paths_At_Any_Depth()
     {
         var root = await SeedRootFolderAsync();
-        var reports = await _sut.CreateFolderAsync(root.Id, "Reports");
-        var year = await _sut.CreateFolderAsync(reports.Id, "2026");
-        var doc = await _sut.CreateDocumentAsync(year.Id, "summary.pdf", "application/pdf", new byte[] { 1 });
 
-        await _sut.UpdateObjectAsync(reports.Id, "Reports2026");
+        var reports =
+            await _sut.CreateFolderAsync(root.Id, "Reports");
 
-        var updatedYear = await _sut.GetObjectByIdAsync(year.Id);
-        var updatedDoc = await _sut.GetObjectByIdAsync(doc.Id);
+        var year =
+            await _sut.CreateFolderAsync(reports.Id, "2026");
 
-        Assert.Equal("/Reports2026/2026", updatedYear!.Path);
-        Assert.Equal("/Reports2026/2026/summary.pdf", updatedDoc!.Path);
+        var doc =
+            await _sut.CreateDocumentAsync(
+                year.Id,
+                "summary.pdf",
+                "application/pdf",
+                new byte[] { 1 });
+
+        await _sut.UpdateObjectAsync(
+            reports.Id,
+            "Reports2026");
+
+        var updatedYear =
+            await _sut.GetObjectByIdAsync(year.Id);
+
+        var updatedDoc =
+            await _sut.GetObjectByIdAsync(doc.Id);
+
+        Assert.Equal(
+            "/Reports2026/2026",
+            updatedYear!.Path);
+
+        Assert.Equal(
+            "/Reports2026/2026/summary.pdf",
+            updatedDoc!.Path);
     }
 
     [Fact]
@@ -163,7 +267,9 @@ public class CmisServiceTests : IDisposable
         await SeedRootFolderAsync();
 
         await Assert.ThrowsAsync<KeyNotFoundException>(
-            () => _sut.UpdateObjectAsync("nonexistent-id", "NewName"));
+            () => _sut.UpdateObjectAsync(
+                "nonexistent-id",
+                "NewName"));
     }
 
     [Fact]
@@ -172,18 +278,29 @@ public class CmisServiceTests : IDisposable
         var root = await SeedRootFolderAsync();
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sut.UpdateObjectAsync(root.Id, "NewRootName"));
+            () => _sut.UpdateObjectAsync(
+                root.Id,
+                "NewRootName"));
     }
 
     [Fact]
     public async Task UpdateObjectAsync_Throws_When_New_Name_Collides_With_Sibling()
     {
         var root = await SeedRootFolderAsync();
-        await _sut.CreateFolderAsync(root.Id, "Existing");
-        var toRename = await _sut.CreateFolderAsync(root.Id, "ToRename");
+
+        await _sut.CreateFolderAsync(
+            root.Id,
+            "Existing");
+
+        var toRename =
+            await _sut.CreateFolderAsync(
+                root.Id,
+                "ToRename");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sut.UpdateObjectAsync(toRename.Id, "Existing"));
+            () => _sut.UpdateObjectAsync(
+                toRename.Id,
+                "Existing"));
     }
 
     // ---------------- MoveObjectAsync ----------------
@@ -192,11 +309,28 @@ public class CmisServiceTests : IDisposable
     public async Task MoveObjectAsync_Moves_Object_And_Updates_Path()
     {
         var root = await SeedRootFolderAsync();
-        var source = await _sut.CreateFolderAsync(root.Id, "Source");
-        var target = await _sut.CreateFolderAsync(root.Id, "Target");
-        var doc = await _sut.CreateDocumentAsync(source.Id, "file.txt", "text/plain", new byte[] { 1 });
 
-        var moved = await _sut.MoveObjectAsync(doc.Id, target.Id);
+        var source =
+            await _sut.CreateFolderAsync(
+                root.Id,
+                "Source");
+
+        var target =
+            await _sut.CreateFolderAsync(
+                root.Id,
+                "Target");
+
+        var doc =
+            await _sut.CreateDocumentAsync(
+                source.Id,
+                "file.txt",
+                "text/plain",
+                new byte[] { 1 });
+
+        var moved =
+            await _sut.MoveObjectAsync(
+                doc.Id,
+                target.Id);
 
         Assert.Equal(target.Id, moved.ParentId);
         Assert.Equal("/Target/file.txt", moved.Path);
@@ -206,50 +340,110 @@ public class CmisServiceTests : IDisposable
     public async Task MoveObjectAsync_Rewrites_Descendant_Paths()
     {
         var root = await SeedRootFolderAsync();
-        var source = await _sut.CreateFolderAsync(root.Id, "Source");
-        var target = await _sut.CreateFolderAsync(root.Id, "Target");
-        var subfolder = await _sut.CreateFolderAsync(source.Id, "Sub");
-        var doc = await _sut.CreateDocumentAsync(subfolder.Id, "file.txt", "text/plain", new byte[] { 1 });
 
-        await _sut.MoveObjectAsync(source.Id, target.Id);
+        var source =
+            await _sut.CreateFolderAsync(
+                root.Id,
+                "Source");
 
-        var movedSub = await _sut.GetObjectByIdAsync(subfolder.Id);
-        var movedDoc = await _sut.GetObjectByIdAsync(doc.Id);
+        var target =
+            await _sut.CreateFolderAsync(
+                root.Id,
+                "Target");
 
-        Assert.Equal("/Target/Source/Sub", movedSub!.Path);
-        Assert.Equal("/Target/Source/Sub/file.txt", movedDoc!.Path);
+        var subfolder =
+            await _sut.CreateFolderAsync(
+                source.Id,
+                "Sub");
+
+        var doc =
+            await _sut.CreateDocumentAsync(
+                subfolder.Id,
+                "file.txt",
+                "text/plain",
+                new byte[] { 1 });
+
+        await _sut.MoveObjectAsync(
+            source.Id,
+            target.Id);
+
+        var movedSub =
+            await _sut.GetObjectByIdAsync(
+                subfolder.Id);
+
+        var movedDoc =
+            await _sut.GetObjectByIdAsync(
+                doc.Id);
+
+        Assert.Equal(
+            "/Target/Source/Sub",
+            movedSub!.Path);
+
+        Assert.Equal(
+            "/Target/Source/Sub/file.txt",
+            movedDoc!.Path);
     }
 
     [Fact]
     public async Task MoveObjectAsync_Throws_When_Moving_Folder_Into_Own_Descendant()
     {
         var root = await SeedRootFolderAsync();
-        var parent = await _sut.CreateFolderAsync(root.Id, "Parent");
-        var child = await _sut.CreateFolderAsync(parent.Id, "Child");
+
+        var parent =
+            await _sut.CreateFolderAsync(
+                root.Id,
+                "Parent");
+
+        var child =
+            await _sut.CreateFolderAsync(
+                parent.Id,
+                "Child");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sut.MoveObjectAsync(parent.Id, child.Id));
+            () => _sut.MoveObjectAsync(
+                parent.Id,
+                child.Id));
     }
 
     [Fact]
     public async Task MoveObjectAsync_Throws_When_Moving_Root_Folder()
     {
         var root = await SeedRootFolderAsync();
-        var target = await _sut.CreateFolderAsync(root.Id, "Target");
+
+        var target =
+            await _sut.CreateFolderAsync(
+                root.Id,
+                "Target");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sut.MoveObjectAsync(root.Id, target.Id));
+            () => _sut.MoveObjectAsync(
+                root.Id,
+                target.Id));
     }
 
     [Fact]
     public async Task MoveObjectAsync_Throws_When_Target_Is_Not_A_Folder()
     {
         var root = await SeedRootFolderAsync();
-        var doc = await _sut.CreateDocumentAsync(root.Id, "file.txt", "text/plain", new byte[] { 1 });
-        var otherDoc = await _sut.CreateDocumentAsync(root.Id, "other.txt", "text/plain", new byte[] { 1 });
+
+        var doc =
+            await _sut.CreateDocumentAsync(
+                root.Id,
+                "file.txt",
+                "text/plain",
+                new byte[] { 1 });
+
+        var otherDoc =
+            await _sut.CreateDocumentAsync(
+                root.Id,
+                "other.txt",
+                "text/plain",
+                new byte[] { 1 });
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sut.MoveObjectAsync(doc.Id, otherDoc.Id));
+            () => _sut.MoveObjectAsync(
+                doc.Id,
+                otherDoc.Id));
     }
 
     // ---------------- DeleteObjectAsync ----------------
@@ -259,7 +453,9 @@ public class CmisServiceTests : IDisposable
     {
         await SeedRootFolderAsync();
 
-        var result = await _sut.DeleteObjectAsync("nonexistent-id");
+        var result =
+            await _sut.DeleteObjectAsync(
+                "nonexistent-id");
 
         Assert.False(result);
     }
@@ -268,23 +464,42 @@ public class CmisServiceTests : IDisposable
     public async Task DeleteObjectAsync_Deletes_Empty_Folder()
     {
         var root = await SeedRootFolderAsync();
-        var folder = await _sut.CreateFolderAsync(root.Id, "Empty");
 
-        var result = await _sut.DeleteObjectAsync(folder.Id);
+        var folder =
+            await _sut.CreateFolderAsync(
+                root.Id,
+                "Empty");
+
+        var result =
+            await _sut.DeleteObjectAsync(
+                folder.Id);
 
         Assert.True(result);
-        Assert.Null(await _sut.GetObjectByIdAsync(folder.Id));
+
+        Assert.Null(
+            await _sut.GetObjectByIdAsync(
+                folder.Id));
     }
 
     [Fact]
     public async Task DeleteObjectAsync_Throws_When_Folder_Has_Children()
     {
         var root = await SeedRootFolderAsync();
-        var folder = await _sut.CreateFolderAsync(root.Id, "NotEmpty");
-        await _sut.CreateDocumentAsync(folder.Id, "file.txt", "text/plain", new byte[] { 1 });
+
+        var folder =
+            await _sut.CreateFolderAsync(
+                root.Id,
+                "NotEmpty");
+
+        await _sut.CreateDocumentAsync(
+            folder.Id,
+            "file.txt",
+            "text/plain",
+            new byte[] { 1 });
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sut.DeleteObjectAsync(folder.Id));
+            () => _sut.DeleteObjectAsync(
+                folder.Id));
     }
 
     [Fact]
@@ -293,7 +508,8 @@ public class CmisServiceTests : IDisposable
         var root = await SeedRootFolderAsync();
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sut.DeleteObjectAsync(root.Id));
+            () => _sut.DeleteObjectAsync(
+                root.Id));
     }
 
     // ---------------- DeleteTreeAsync ----------------
@@ -302,26 +518,60 @@ public class CmisServiceTests : IDisposable
     public async Task DeleteTreeAsync_Removes_Folder_And_All_Descendants()
     {
         var root = await SeedRootFolderAsync();
-        var folder = await _sut.CreateFolderAsync(root.Id, "ToDelete");
-        var sub = await _sut.CreateFolderAsync(folder.Id, "Sub");
-        var doc = await _sut.CreateDocumentAsync(sub.Id, "file.txt", "text/plain", new byte[] { 1 });
 
-        var deletedCount = await _sut.DeleteTreeAsync(folder.Id);
+        var folder =
+            await _sut.CreateFolderAsync(
+                root.Id,
+                "ToDelete");
 
-        Assert.Equal(3, deletedCount); // folder + sub + doc
-        Assert.Null(await _sut.GetObjectByIdAsync(folder.Id));
-        Assert.Null(await _sut.GetObjectByIdAsync(sub.Id));
-        Assert.Null(await _sut.GetObjectByIdAsync(doc.Id));
+        var sub =
+            await _sut.CreateFolderAsync(
+                folder.Id,
+                "Sub");
+
+        var doc =
+            await _sut.CreateDocumentAsync(
+                sub.Id,
+                "file.txt",
+                "text/plain",
+                new byte[] { 1 });
+
+        var deletedCount =
+            await _sut.DeleteTreeAsync(
+                folder.Id);
+
+        Assert.Equal(
+            3,
+            deletedCount);
+
+        Assert.Null(
+            await _sut.GetObjectByIdAsync(
+                folder.Id));
+
+        Assert.Null(
+            await _sut.GetObjectByIdAsync(
+                sub.Id));
+
+        Assert.Null(
+            await _sut.GetObjectByIdAsync(
+                doc.Id));
     }
 
     [Fact]
     public async Task DeleteTreeAsync_Throws_When_Target_Is_Not_A_Folder()
     {
         var root = await SeedRootFolderAsync();
-        var doc = await _sut.CreateDocumentAsync(root.Id, "file.txt", "text/plain", new byte[] { 1 });
+
+        var doc =
+            await _sut.CreateDocumentAsync(
+                root.Id,
+                "file.txt",
+                "text/plain",
+                new byte[] { 1 });
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sut.DeleteTreeAsync(doc.Id));
+            () => _sut.DeleteTreeAsync(
+                doc.Id));
     }
 
     [Fact]
@@ -330,7 +580,8 @@ public class CmisServiceTests : IDisposable
         var root = await SeedRootFolderAsync();
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sut.DeleteTreeAsync(root.Id));
+            () => _sut.DeleteTreeAsync(
+                root.Id));
     }
 
     // ---------------- SearchObjectsAsync ----------------
@@ -340,7 +591,8 @@ public class CmisServiceTests : IDisposable
     {
         await SeedRootFolderAsync();
 
-        var results = await _sut.SearchObjectsAsync("   ");
+        var results =
+            await _sut.SearchObjectsAsync("   ");
 
         Assert.Empty(results);
     }
@@ -349,13 +601,24 @@ public class CmisServiceTests : IDisposable
     public async Task SearchObjectsAsync_Finds_Partial_Name_Matches()
     {
         var root = await SeedRootFolderAsync();
-        await _sut.CreateFolderAsync(root.Id, "Quarterly Reports");
-        await _sut.CreateFolderAsync(root.Id, "Archive");
 
-        var results = await _sut.SearchObjectsAsync("report");
+        await _sut.CreateFolderAsync(
+            root.Id,
+            "Quarterly Reports");
+
+        await _sut.CreateFolderAsync(
+            root.Id,
+            "Archive");
+
+        var results =
+            await _sut.SearchObjectsAsync(
+                "report");
 
         Assert.Single(results);
-        Assert.Equal("Quarterly Reports", results.First().Name);
+
+        Assert.Equal(
+            "Quarterly Reports",
+            results.First().Name);
     }
 
     // ---------------- ExecuteQueryAsync (CMIS-SQL) ----------------
@@ -364,12 +627,27 @@ public class CmisServiceTests : IDisposable
     public async Task ExecuteQueryAsync_Filters_By_Type_And_InFolder()
     {
         var root = await SeedRootFolderAsync();
-        var folder = await _sut.CreateFolderAsync(root.Id, "Docs");
-        await _sut.CreateDocumentAsync(folder.Id, "a.txt", "text/plain", new byte[] { 1 });
-        await _sut.CreateDocumentAsync(root.Id, "b.txt", "text/plain", new byte[] { 1 });
 
-        var (results, numItems, hasMore) = await _sut.ExecuteQueryAsync(
-            $"SELECT * FROM cmis:document WHERE IN_FOLDER('{folder.Id}')");
+        var folder =
+            await _sut.CreateFolderAsync(
+                root.Id,
+                "Docs");
+
+        await _sut.CreateDocumentAsync(
+            folder.Id,
+            "a.txt",
+            "text/plain",
+            new byte[] { 1 });
+
+        await _sut.CreateDocumentAsync(
+            root.Id,
+            "b.txt",
+            "text/plain",
+            new byte[] { 1 });
+
+        var (results, numItems, hasMore) =
+            await _sut.ExecuteQueryAsync(
+                $"SELECT * FROM cmis:document WHERE IN_FOLDER('{folder.Id}')");
 
         Assert.Equal(1, numItems);
         Assert.False(hasMore);
@@ -380,13 +658,21 @@ public class CmisServiceTests : IDisposable
     public async Task ExecuteQueryAsync_Respects_Pagination()
     {
         var root = await SeedRootFolderAsync();
+
         for (int i = 0; i < 5; i++)
         {
-            await _sut.CreateDocumentAsync(root.Id, $"doc{i}.txt", "text/plain", new byte[] { 1 });
+            await _sut.CreateDocumentAsync(
+                root.Id,
+                $"doc{i}.txt",
+                "text/plain",
+                new byte[] { 1 });
         }
 
-        var (page, numItems, hasMore) = await _sut.ExecuteQueryAsync(
-            "SELECT * FROM cmis:document", maxItems: 2, skipCount: 0);
+        var (page, numItems, hasMore) =
+            await _sut.ExecuteQueryAsync(
+                "SELECT * FROM cmis:document",
+                maxItems: 2,
+                skipCount: 0);
 
         Assert.Equal(5, numItems);
         Assert.Equal(2, page.Count());
@@ -397,539 +683,102 @@ public class CmisServiceTests : IDisposable
     public async Task ExecuteQueryAsync_Orders_Results_Descending()
     {
         var root = await SeedRootFolderAsync();
-        await _sut.CreateDocumentAsync(root.Id, "b.txt", "text/plain", new byte[] { 1 });
-        await _sut.CreateDocumentAsync(root.Id, "a.txt", "text/plain", new byte[] { 1 });
 
-        var (results, _, _) = await _sut.ExecuteQueryAsync(
-            "SELECT * FROM cmis:document ORDER BY cmis:name DESC");
+        await _sut.CreateDocumentAsync(
+            root.Id,
+            "b.txt",
+            "text/plain",
+            new byte[] { 1 });
 
-        Assert.Equal("b.txt", results.First().Name);
+        await _sut.CreateDocumentAsync(
+            root.Id,
+            "a.txt",
+            "text/plain",
+            new byte[] { 1 });
+
+        var (results, _, _) =
+            await _sut.ExecuteQueryAsync(
+                "SELECT * FROM cmis:document ORDER BY cmis:name DESC");
+
+        Assert.Equal(
+            "b.txt",
+            results.First().Name);
     }
-    // ---------------- Custom property definitions ----------------
 
-    private async Task SeedDocumentPropertyAsync(
-        string propertyId,
-        string localName,
-        string propertyType = "string",
-        string cardinality = "single",
-        string updatability = "readwrite",
-        bool required = false)
+    // ---------------- Type hierarchy regression tests ----------------
+
+    [Fact]
+    public async Task ExecuteQueryAsync_On_CmisDocument_Includes_Derived_Document_Types()
     {
-        _context.TypePropertyDefinitions.Add(new TypePropertyDefinition
+        var root = await SeedRootFolderAsync();
+
+        _context.Types.Add(new CmisType
         {
-            TypeId = "cmis:document",
-            PropertyId = propertyId,
-            LocalName = localName,
-            PropertyType = propertyType,
-            Cardinality = cardinality,
-            Updatability = updatability,
-            Required = required
+            Id = "custom:contract",
+            BaseId = "cmis:document",
+            ParentTypeId = "cmis:document",
+            DisplayName = "Contract",
+            Description = "Contract"
         });
 
         await _context.SaveChangesAsync();
+
+        await _sut.CreateDocumentAsync(
+            root.Id,
+            "contract.pdf",
+            "application/pdf",
+            new byte[] { 1, 2, 3 },
+            "custom:contract");
+
+        var (results, numItems, _) =
+            await _sut.ExecuteQueryAsync(
+                "SELECT * FROM cmis:document");
+
+        Assert.Equal(1, numItems);
+        Assert.Contains(
+            results,
+            o => o.TypeId == "custom:contract");
     }
 
     [Fact]
-    public async Task GetTypeDefinitionAsync_Includes_Custom_Property_Definition()
+    public async Task GetTypeChildrenAsync_With_No_Type_Returns_Base_Types()
+    {
+        var roots =
+            (await _sut.GetTypeChildrenAsync(null))
+            .ToList();
+
+        Assert.Equal(2, roots.Count);
+
+        Assert.Contains(
+            roots,
+            t => t.Id == "cmis:document");
+
+        Assert.Contains(
+            roots,
+            t => t.Id == "cmis:folder");
+    }
+
+    [Fact]
+    public async Task GetTypeDefinitionAsync_Returns_ParentTypeId()
     {
         _context.Types.Add(new CmisType
         {
-            Id = "cmis:document",
+            Id = "custom:contract",
             BaseId = "cmis:document",
-            DisplayName = "Document",
-            Description = "Document"
+            ParentTypeId = "cmis:document",
+            DisplayName = "Contract",
+            Description = "Contract"
         });
-
-        await SeedDocumentPropertyAsync(
-            "custom:department",
-            "department");
 
         await _context.SaveChangesAsync();
 
         var definition =
-            await _sut.GetTypeDefinitionAsync("cmis:document");
+            await _sut.GetTypeDefinitionAsync(
+                "custom:contract");
 
         Assert.NotNull(definition);
-
-        var property = definition!.PropertyDefinitions
-            .SingleOrDefault(p => p.Id == "custom:department");
-
-        Assert.NotNull(property);
-
-        Assert.Equal("custom:department", property!.Id);
-        Assert.Equal("department", property.LocalName);
-        Assert.Equal("string", property.PropertyType);
-        Assert.Equal("single", property.Cardinality);
-    }
-    [Fact]
-    public async Task CreateDocumentAsync_Stores_Custom_Property()
-    {
-        var root = await SeedRootFolderAsync();
-
-        await SeedDocumentPropertyAsync(
-            "custom:department",
-            "department");
-
-        var document = await _sut.CreateDocumentAsync(
-            root.Id,
-            "invoice.txt",
-            "text/plain",
-            new byte[] { 1, 2, 3 },
-            """
-        {
-            "custom:department": "Finance"
-        }
-        """);
-
-        var property = await _context.ObjectProperties
-            .SingleAsync(p =>
-                p.ObjectId == document.Id &&
-                p.PropertyId == "custom:department");
-
-        Assert.Equal("Finance", property.Value);
-        Assert.Equal("string", property.PropertyType);
-        Assert.Equal("single", property.Cardinality);
-    }
-
-    [Fact]
-    public async Task CreateDocumentAsync_Rejects_Unknown_Custom_Property()
-    {
-        var root = await SeedRootFolderAsync();
-
-        await SeedDocumentPropertyAsync(
-            "custom:department",
-            "department");
-
-        var exception =
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => _sut.CreateDocumentAsync(
-                    root.Id,
-                    "invoice.txt",
-                    "text/plain",
-                    new byte[] { 1 },
-                    """
-                {
-                    "custom:doesNotExist": "value"
-                }
-                """));
-
-        Assert.Contains("Unknown property", exception.Message);
-    }
-
-    [Fact]
-    public async Task CreateDocumentAsync_Rejects_Readonly_Custom_Property()
-    {
-        var root = await SeedRootFolderAsync();
-
-        await SeedDocumentPropertyAsync(
-            "custom:reference",
-            "reference",
-            updatability: "readonly");
-
-        var exception =
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => _sut.CreateDocumentAsync(
-                    root.Id,
-                    "invoice.txt",
-                    "text/plain",
-                    new byte[] { 1 },
-                    """
-                {
-                    "custom:reference": "REF-001"
-                }
-                """));
-
-        Assert.Contains("read-only", exception.Message);
-    }
-
-    [Fact]
-    public async Task CreateDocumentAsync_Rejects_Missing_Required_Property()
-    {
-        var root = await SeedRootFolderAsync();
-
-        await SeedDocumentPropertyAsync(
-            "custom:department",
-            "department",
-            required: true);
-
-        var exception =
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => _sut.CreateDocumentAsync(
-                    root.Id,
-                    "invoice.txt",
-                    "text/plain",
-                    new byte[] { 1 }));
-
-        Assert.Contains(
-            "custom:department",
-            exception.Message);
-    }
-
-    [Fact]
-    public async Task CreateDocumentAsync_Stores_MultiValue_Property_In_Order()
-    {
-        var root = await SeedRootFolderAsync();
-
-        await SeedDocumentPropertyAsync(
-            "custom:tags",
-            "tags",
-            cardinality: "multi");
-
-        var document = await _sut.CreateDocumentAsync(
-            root.Id,
-            "file.txt",
-            "text/plain",
-            new byte[] { 1 },
-            """
-        {
-            "custom:tags": ["cloud", "cmis", "dotnet"]
-        }
-        """);
-
-        var values = await _context.ObjectProperties
-            .Where(p =>
-                p.ObjectId == document.Id &&
-                p.PropertyId == "custom:tags")
-            .OrderBy(p => p.SortOrder)
-            .Select(p => p.Value)
-            .ToListAsync();
-
         Assert.Equal(
-            new[] { "cloud", "cmis", "dotnet" },
-            values);
-    }
-
-    [Fact]
-    public async Task CreateDocumentAsync_Rejects_Single_Value_For_Multi_Property()
-    {
-        var root = await SeedRootFolderAsync();
-
-        await SeedDocumentPropertyAsync(
-            "custom:tags",
-            "tags",
-            cardinality: "multi");
-
-        var exception =
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => _sut.CreateDocumentAsync(
-                    root.Id,
-                    "file.txt",
-                    "text/plain",
-                    new byte[] { 1 },
-                    """
-                {
-                    "custom:tags": "cloud"
-                }
-                """));
-
-        Assert.Contains(
-            "expects a JSON array",
-            exception.Message);
-    }
-
-    // ---------------- Property envelopes ----------------
-
-    [Fact]
-    public async Task GetObjectEnvelopeAsync_Returns_System_Properties()
-    {
-        var root = await SeedRootFolderAsync();
-
-        var document = await _sut.CreateDocumentAsync(
-            root.Id,
-            "hello.txt",
-            "text/plain",
-            new byte[] { 1, 2, 3 });
-
-        var envelope =
-            await _sut.GetObjectEnvelopeAsync(document.Id);
-
-        Assert.NotNull(envelope);
-
-        Assert.Equal(document.Id, envelope!.Id);
-        Assert.Equal("hello.txt", envelope.Name);
-
-        Assert.True(
-            envelope.Properties.ContainsKey("cmis:name"));
-
-        Assert.True(
-            envelope.Properties.ContainsKey(
-                "cmis:lastModificationDate"));
-
-        Assert.True(
-            envelope.Properties.ContainsKey(
-                "cmis:contentStreamLength"));
-
-        Assert.Equal(
-            3L,
-            envelope.Properties[
-                "cmis:contentStreamLength"].Value);
-    }
-
-    [Fact]
-    public async Task GetObjectEnvelopeAsync_Returns_Custom_Property()
-    {
-        var root = await SeedRootFolderAsync();
-
-        await SeedDocumentPropertyAsync(
-            "custom:department",
-            "department");
-
-        var document = await _sut.CreateDocumentAsync(
-            root.Id,
-            "invoice.txt",
-            "text/plain",
-            new byte[] { 1 },
-            """
-        {
-            "custom:department": "Finance"
-        }
-        """);
-
-        var envelope =
-            await _sut.GetObjectEnvelopeAsync(document.Id);
-
-        Assert.NotNull(envelope);
-
-        Assert.True(
-            envelope!.Properties
-                .ContainsKey("custom:department"));
-
-        var property =
-            envelope.Properties["custom:department"];
-
-        Assert.Equal("Finance", property.Value);
-        Assert.Equal("department", property.LocalName);
-        Assert.Equal("string", property.Type);
-        Assert.Equal("single", property.Cardinality);
-    }
-
-    [Fact]
-    public async Task GetChildrenEnvelopesAsync_Returns_Children_With_Properties()
-    {
-        var root = await SeedRootFolderAsync();
-
-        await _sut.CreateDocumentAsync(
-            root.Id,
-            "one.txt",
-            "text/plain",
-            new byte[] { 1, 2 });
-
-        await _sut.CreateDocumentAsync(
-            root.Id,
-            "two.txt",
-            "text/plain",
-            new byte[] { 1, 2, 3 });
-
-        var children =
-            (await _sut.GetChildrenEnvelopesAsync(root.Id))
-            .ToList();
-
-        Assert.Equal(2, children.Count);
-
-        Assert.All(children, child =>
-        {
-            Assert.True(
-                child.Properties.ContainsKey("cmis:name"));
-
-            Assert.True(
-                child.Properties.ContainsKey(
-                    "cmis:contentStreamLength"));
-        });
-    }
-
-    // ---------------- Custom property updates ----------------
-
-    [Fact]
-    public async Task UpdateObjectAsync_Updates_Custom_Property()
-    {
-        var root = await SeedRootFolderAsync();
-
-        await SeedDocumentPropertyAsync(
-            "custom:department",
-            "department");
-
-        var document = await _sut.CreateDocumentAsync(
-            root.Id,
-            "invoice.txt",
-            "text/plain",
-            new byte[] { 1 },
-            """
-        {
-            "custom:department": "Finance"
-        }
-        """);
-
-        await _sut.UpdateObjectAsync(
-            document.Id,
-            null,
-            """
-        {
-            "custom:department": "Engineering"
-        }
-        """);
-
-        var property = await _context.ObjectProperties
-            .SingleAsync(p =>
-                p.ObjectId == document.Id &&
-                p.PropertyId == "custom:department");
-
-        Assert.Equal("Engineering", property.Value);
-    }
-
-    [Fact]
-    public async Task UpdateObjectAsync_Clears_Custom_Property_When_Value_Is_Null()
-    {
-        var root = await SeedRootFolderAsync();
-
-        await SeedDocumentPropertyAsync(
-            "custom:department",
-            "department");
-
-        var document = await _sut.CreateDocumentAsync(
-            root.Id,
-            "invoice.txt",
-            "text/plain",
-            new byte[] { 1 },
-            """
-        {
-            "custom:department": "Finance"
-        }
-        """);
-
-        await _sut.UpdateObjectAsync(
-            document.Id,
-            null,
-            """
-        {
-            "custom:department": null
-        }
-        """);
-
-        Assert.False(
-            await _context.ObjectProperties.AnyAsync(
-                p =>
-                    p.ObjectId == document.Id &&
-                    p.PropertyId == "custom:department"));
-    }
-
-    // ---------------- SetContentStreamAsync ----------------
-
-    [Fact]
-    public async Task SetContentStreamAsync_Replaces_Content_MimeType_And_Length()
-    {
-        var root = await SeedRootFolderAsync();
-
-        var document = await _sut.CreateDocumentAsync(
-            root.Id,
-            "file.txt",
-            "text/plain",
-            new byte[] { 1 });
-
-        var newContent =
-            new byte[] { 10, 20, 30, 40 };
-
-        var updated =
-            await _sut.SetContentStreamAsync(
-                document.Id,
-                "application/octet-stream",
-                newContent);
-
-        Assert.Equal(newContent, updated.ContentStream);
-
-        Assert.Equal(
-            "application/octet-stream",
-            updated.MimeType);
-
-        Assert.Equal(
-            newContent.Length,
-            updated.ContentStreamLength);
-    }
-
-    [Fact]
-    public async Task SetContentStreamAsync_Rejects_Folder()
-    {
-        var root = await SeedRootFolderAsync();
-
-        var folder =
-            await _sut.CreateFolderAsync(root.Id, "Folder");
-
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _sut.SetContentStreamAsync(
-                folder.Id,
-                "text/plain",
-                new byte[] { 1 }));
-    }
-
-    // ---------------- Custom property query ----------------
-
-    [Fact]
-    public async Task ExecuteQueryAsync_Filters_By_Custom_Property()
-    {
-        var root = await SeedRootFolderAsync();
-
-        await SeedDocumentPropertyAsync(
-            "custom:department",
-            "department");
-
-        await _sut.CreateDocumentAsync(
-            root.Id,
-            "finance.txt",
-            "text/plain",
-            new byte[] { 1 },
-            """
-        {
-            "custom:department": "Finance"
-        }
-        """);
-
-        await _sut.CreateDocumentAsync(
-            root.Id,
-            "engineering.txt",
-            "text/plain",
-            new byte[] { 1 },
-            """
-        {
-            "custom:department": "Engineering"
-        }
-        """);
-
-        var (results, count, _) =
-            await _sut.ExecuteQueryAsync(
-                "SELECT * FROM cmis:document WHERE custom:department = 'Finance'");
-
-        Assert.Equal(1, count);
-
-        Assert.Equal(
-            "finance.txt",
-            results.Single().Name);
-    }
-
-    // ---------------- Delete custom properties ----------------
-
-    [Fact]
-    public async Task DeleteObjectAsync_Deletes_Custom_Property_Rows()
-    {
-        var root = await SeedRootFolderAsync();
-
-        await SeedDocumentPropertyAsync(
-            "custom:department",
-            "department");
-
-        var document = await _sut.CreateDocumentAsync(
-            root.Id,
-            "invoice.txt",
-            "text/plain",
-            new byte[] { 1 },
-            """
-        {
-            "custom:department": "Finance"
-        }
-        """);
-
-        await _sut.DeleteObjectAsync(document.Id);
-
-        Assert.False(
-            await _context.ObjectProperties.AnyAsync(
-                p => p.ObjectId == document.Id));
+            "cmis:document",
+            definition!.ParentTypeId);
     }
 }

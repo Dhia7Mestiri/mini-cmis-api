@@ -182,7 +182,7 @@
             }
 
         /* ---------- Form controls ---------- */
-        input[type=text], input[type=email], input[type=password], input[type=number], select, textarea {
+        input[type=text], input[type=email], input[type=password], input[type=number], input[type=datetime-local], select, textarea {
             background: var(--surface-2);
             border: 1px solid var(--border);
             color: var(--text);
@@ -712,6 +712,348 @@
                 color: var(--amber);
             }
 
+
+        /* ---------- Type management ---------- */
+        .type-management {
+            margin-top: 18px;
+        }
+
+            .type-management .panel-header {
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+
+        .type-management-title {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+            .type-management-title p {
+                margin: 0;
+                font-size: 11.5px;
+                color: var(--text-faint);
+                text-transform: none;
+                letter-spacing: 0;
+                font-weight: 400;
+            }
+
+        .type-tree {
+            padding: 10px 12px 14px;
+        }
+
+        .type-tree-row {
+            display: grid;
+            grid-template-columns: minmax(240px, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            min-height: 48px;
+            padding: 6px 8px;
+            border-radius: 7px;
+            border: 1px solid transparent;
+        }
+
+            .type-tree-row:hover {
+                background: var(--surface-2);
+                border-color: var(--border);
+            }
+
+        .type-tree-main {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+
+        .type-tree-indent {
+            flex: 0 0 auto;
+        }
+
+        .type-tree-toggle {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            justify-content: center;
+            background: transparent;
+            border-color: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+            .type-tree-toggle:hover:not(:disabled) {
+                background: var(--surface);
+                border-color: var(--border);
+            }
+
+            .type-tree-toggle.empty {
+                opacity: .25;
+                cursor: default;
+            }
+
+        .type-tree-label {
+            min-width: 0;
+            cursor: pointer;
+        }
+
+        .type-tree-name {
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .type-tree-meta {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 2px;
+            min-width: 0;
+        }
+
+        .type-tree-id {
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            color: var(--text-faint);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .type-tree-actions {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .type-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,0.012);
+        }
+
+        .type-stat {
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 10px 12px;
+            background: var(--surface-2);
+        }
+
+            .type-stat strong {
+                display: block;
+                font-family: var(--font-mono);
+                font-size: 16px;
+                color: var(--text);
+            }
+
+            .type-stat span {
+                display: block;
+                margin-top: 2px;
+                font-size: 10.5px;
+                color: var(--text-faint);
+                text-transform: uppercase;
+                letter-spacing: .04em;
+            }
+
+        @media (max-width: 720px) {
+            .type-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .type-tree-row {
+                grid-template-columns: 1fr;
+            }
+
+            .type-tree-actions {
+                padding-left: 33px;
+            }
+        }
+
+        .type-builder-modal {
+            width: 760px;
+            max-width: 94vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+            .type-builder-modal .modal-body {
+                overflow-y: auto;
+            }
+
+        .form-section {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 14px;
+            background: rgba(255,255,255,0.012);
+        }
+
+            .form-section:last-child {
+                margin-bottom: 0;
+            }
+
+        .form-section-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+            .form-section-head h4 {
+                margin: 0;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: .05em;
+                color: var(--text-muted);
+            }
+
+            .form-section-head p {
+                margin: 2px 0 0;
+                font-size: 11.5px;
+                color: var(--text-faint);
+            }
+
+        .form-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        @media (max-width: 650px) {
+            .form-grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .generated-id-box {
+            margin-top: 6px;
+            padding: 7px 9px;
+            border: 1px dashed var(--border);
+            border-radius: 6px;
+            background: #0f1116;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--teal);
+        }
+
+        .helper-text {
+            margin-top: 5px;
+            font-size: 11px;
+            color: var(--text-faint);
+        }
+
+        .inherit-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            min-height: 20px;
+        }
+
+            .inherit-preview .chip {
+                font-family: var(--font-mono);
+            }
+
+        .property-builder-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .property-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface-2);
+            padding: 12px;
+        }
+
+        .property-card-top {
+            display: grid;
+            grid-template-columns: minmax(180px, 1fr) 150px auto auto;
+            gap: 8px;
+            align-items: end;
+        }
+
+        @media (max-width: 700px) {
+            .property-card-top {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .property-card-advanced {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+            display: none;
+        }
+
+        .property-card.advanced-open .property-card-advanced {
+            display: block;
+        }
+
+        .property-id-preview {
+            font-family: var(--font-mono);
+            color: var(--teal);
+            font-size: 10.5px;
+            margin-top: 4px;
+        }
+
+        .toggle-line {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 37px;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+            .toggle-line input {
+                accent-color: var(--amber);
+            }
+
+        .advanced-link {
+            background: transparent;
+            border: none;
+            color: var(--teal);
+            padding: 3px 0;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .empty-properties {
+            border: 1px dashed var(--border);
+            border-radius: 7px;
+            padding: 16px;
+            color: var(--text-faint);
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .type-detail-grid {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            gap: 8px 12px;
+            padding: 10px 0 14px;
+            font-size: 12px;
+        }
+
+            .type-detail-grid .k {
+                color: var(--text-faint);
+                text-transform: uppercase;
+                letter-spacing: .04em;
+                font-size: 10px;
+            }
+
+            .type-detail-grid .v {
+                font-family: var(--font-mono);
+                color: var(--text-muted);
+                word-break: break-word;
+            }
+
         /* ---------- Utility ---------- */
         .text-muted {
             color: var(--text-muted);
@@ -775,17 +1117,21 @@
                         <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;">
                         <div>
                             <label>Upload document</label>
+
+                            <label for="documentTypeSelect" style="margin-top:8px;">Document type</label>
+                            <select id="documentTypeSelect"
+                                    style="width:100%;margin-bottom:8px;"
+                                    onchange="onDocumentTypeChanged()"
+                                    disabled>
+                                <option value="cmis:document">Document</option>
+                            </select>
+
+                            <div id="dynamicTypeProperties" style="margin-bottom:8px;"></div>
+
                             <input type="text" id="docName" placeholder="Custom name (optional)" style="width:100%;margin-bottom:8px;" disabled>
                             <input type="file" id="fileInput" style="width:100%;" disabled>
                         </div>
                         <button class="btn-primary btn-block" id="uploadBtn" onclick="uploadDocument()" disabled title="Sign in first">Upload</button>
-                    </div>
-                </div>
-
-                <div class="panel">
-                    <div class="panel-header"><h3>Repository Types</h3></div>
-                    <div class="panel-body" id="typesList" style="padding:8px;">
-                        <div class="text-muted" style="padding:8px 10px;font-size:12.5px;">Sign in to load types.</div>
                     </div>
                 </div>
             </div>
@@ -832,6 +1178,30 @@
                     </table>
                     <div class="query-result-meta hidden" id="queryMeta"></div>
                 </div>
+
+                <!-- Type Management -->
+                <div class="panel type-management" id="typeManagementPanel">
+                    <div class="panel-header">
+                        <div class="type-management-title">
+                            <h3>Type Management</h3>
+                            <p>Create and manage CMIS type hierarchies without writing technical IDs by hand.</p>
+                        </div>
+                        <div style="display:flex;gap:6px;">
+                            <button class="btn-ghost btn-sm" onclick="refreshTypeManagement()">Refresh</button>
+                            <button class="btn-primary btn-sm" id="createTypeBtn" onclick="openCreateTypeModal()" disabled title="Admin only">+ Create type</button>
+                        </div>
+                    </div>
+
+                    <div class="type-summary" id="typeSummary">
+                        <div class="type-stat"><strong>—</strong><span>Total types</span></div>
+                        <div class="type-stat"><strong>—</strong><span>Document types</span></div>
+                        <div class="type-stat"><strong>—</strong><span>Folder types</span></div>
+                    </div>
+
+                    <div id="typeTree" class="type-tree">
+                        <div class="text-muted" style="padding:10px;">Sign in to load repository types.</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -871,17 +1241,109 @@
 
     <!-- Type definition modal -->
     <div class="modal-backdrop" id="typeModal">
-        <div class="modal" style="width:560px;">
-            <div class="modal-header"><h3 id="typeModalTitle">Type definition</h3><button class="modal-close" onclick="closeModal('typeModal')">&times;</button></div>
+        <div class="modal" style="width:620px;max-height:88vh;overflow:auto;">
+            <div class="modal-header">
+                <h3 id="typeModalTitle">Type definition</h3>
+                <button class="modal-close" onclick="closeModal('typeModal')">&times;</button>
+            </div>
             <div class="modal-body">
                 <p class="text-muted" id="typeModalDesc" style="margin-top:0;font-size:12.5px;"></p>
+                <div class="type-detail-grid" id="typeDetailGrid"></div>
                 <table class="type-props-table">
-                    <thead><tr><th>Property</th><th>Type</th><th>Cardinality</th><th>Updatability</th><th>Required</th></tr></thead>
+                    <thead>
+                        <tr><th>Property</th><th>Type</th><th>Cardinality</th><th>Updatability</th><th>Required</th></tr>
+                    </thead>
                     <tbody id="typePropsBody"></tbody>
                 </table>
             </div>
             <div class="modal-footer">
+                <button class="btn-ghost btn-sm hidden" id="typeModalEditBtn">Edit type</button>
+                <button class="btn-danger btn-sm hidden" id="typeModalDeleteBtn">Delete type</button>
                 <button class="btn-ghost btn-sm" onclick="closeModal('typeModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create / Edit Type modal -->
+    <div class="modal-backdrop" id="typeBuilderModal">
+        <div class="modal type-builder-modal">
+            <div class="modal-header">
+                <div>
+                    <h3 id="typeBuilderTitle">Create type</h3>
+                    <div class="text-muted" id="typeBuilderSubtitle" style="font-size:11.5px;margin-top:2px;">
+                        Define a new repository type.
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeModal('typeBuilderModal')">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-section">
+                    <div class="form-section-head">
+                        <div>
+                            <h4>1. Basic information</h4>
+                            <p>Give the type a human-friendly name. Technical IDs are generated automatically.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div>
+                            <label>Type name *</label>
+                            <input type="text" id="typeNameInput" placeholder="e.g. Contract" style="width:100%;" oninput="syncGeneratedTypeId()">
+                            <div class="helper-text">Use a clear business name. Example: Contract, Invoice, Employee File.</div>
+                        </div>
+
+                        <div>
+                            <label>Parent type *</label>
+                            <select id="typeParentSelect" style="width:100%;" onchange="onTypeParentChanged()"></select>
+                            <div class="helper-text">The new type automatically inherits all properties from this parent.</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:12px;">
+                        <label>Description</label>
+                        <input type="text" id="typeDescriptionInput" placeholder="Optional description" style="width:100%;">
+                    </div>
+
+                    <div style="margin-top:12px;">
+                        <label>Generated type ID</label>
+                        <div class="generated-id-box" id="generatedTypeId">custom:newType</div>
+                        <button type="button" class="advanced-link" onclick="toggleTypeIdAdvanced()">Advanced: edit technical ID</button>
+                        <div id="typeIdAdvanced" class="hidden" style="margin-top:7px;">
+                            <input type="text" id="typeIdInput" style="width:100%;" placeholder="custom:contract" oninput="markTypeIdManual()">
+                            <div class="helper-text">The <code>custom:</code> prefix is optional here; the UI adds it automatically.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-section-head">
+                        <div>
+                            <h4>2. Inherited automatically</h4>
+                            <p>These properties come from the selected parent. You do not need to recreate them.</p>
+                        </div>
+                    </div>
+                    <div id="inheritedPropertiesPreview" class="inherit-preview">
+                        <span class="text-muted">Choose a parent type to preview inherited properties.</span>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-section-head">
+                        <div>
+                            <h4>3. Properties specific to this type</h4>
+                            <p>Usually you only need a property name, data type, and whether it is required.</p>
+                        </div>
+                        <button class="btn-ghost btn-sm" type="button" onclick="addTypePropertyRow()">+ Add property</button>
+                    </div>
+
+                    <div id="typePropertyBuilder" class="property-builder-list"></div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-ghost btn-sm" onclick="closeModal('typeBuilderModal')">Cancel</button>
+                <button class="btn-primary btn-sm" id="saveTypeBtn" onclick="saveType()">Create type</button>
             </div>
         </div>
     </div>
@@ -893,6 +1355,14 @@
         let currentItems = [];
         let selectedId = null;
         let currentRoles = [];
+        let documentTypes = [];
+        let selectedDocumentTypeDefinition = null;
+        let allRepositoryTypes = [];
+        let expandedTypeIds = new Set(['cmis:document', 'cmis:folder']);
+        let typeBuilderMode = 'create';
+        let editingTypeId = null;
+        let typePropertyRowCounter = 0;
+        let typeIdManuallyEdited = false;
 
         function hasRole(role) { return currentRoles.includes(role); }
         function canWrite() { return hasRole('Admin') || hasRole('Manager'); }
@@ -979,7 +1449,8 @@
                     localStorage.setItem('email', email);
                     await fetchRoles();
                     renderAuthedState(email);
-                    loadTypes();
+                    refreshTypeManagement();
+                    loadDocumentTypes();
                     loadChildren('root-folder', 'root-folder', true);
                     showToast('Signed in', `Welcome back, ${email}.`, 'success');
                 }
@@ -1010,6 +1481,7 @@
             document.getElementById('folderName').disabled = !writeAllowed;
             document.getElementById('fileInput').disabled = !writeAllowed;
             document.getElementById('docName').disabled = !writeAllowed;
+            document.getElementById('documentTypeSelect').disabled = !writeAllowed;
 
             const createFolderBtn = document.getElementById('createFolderBtn');
             const uploadBtn = document.getElementById('uploadBtn');
@@ -1017,6 +1489,13 @@
             uploadBtn.disabled = !writeAllowed;
             createFolderBtn.title = writeAllowed ? '' : 'Requires Admin or Manager role';
             uploadBtn.title = writeAllowed ? '' : 'Requires Admin or Manager role';
+
+            const createTypeBtn = document.getElementById('createTypeBtn');
+            if (createTypeBtn) {
+                const typeAdmin = hasRole('Admin');
+                createTypeBtn.disabled = !typeAdmin;
+                createTypeBtn.title = typeAdmin ? '' : 'Requires Admin role';
+            }
 
             updateToolbarState();
         }
@@ -1032,13 +1511,13 @@
             bar.classList.add('authed');
             const roleBadges = currentRoles.map(r => `<span class="pill accent" style="padding:3px 9px;">${r}</span>`).join(' ');
             bar.innerHTML = `
-        <div class="auth-user" style="flex:1;">
-          <span class="pill accent">&#9679; Authenticated</span>
-          <span class="email">${email}</span>
-          ${roleBadges}
-        </div>
-        <button class="btn-ghost btn-sm" onclick="logout()">Sign out</button>
-      `;
+                <div class="auth-user" style="flex:1;">
+                  <span class="pill accent">&#9679; Authenticated</span>
+                  <span class="email">${email}</span>
+                  ${roleBadges}
+                </div>
+                <button class="btn-ghost btn-sm" onclick="logout()">Sign out</button>
+              `;
         }
 
         async function restoreSession() {
@@ -1054,7 +1533,8 @@
             }
             await fetchRoles();
             renderAuthedState(email || 'session restored');
-            loadTypes();
+            refreshTypeManagement();
+            loadDocumentTypes();
             loadChildren('root-folder', 'root-folder', true);
         }
 
@@ -1132,49 +1612,49 @@
                     ?? item.lastModificationDate;
 
                 return `
-          <tr class="row"
-              data-id="${item.id}"
-              data-name="${item.name}"
-              data-type="${item.typeId}"
-              onclick="selectRow(event, '${item.id}')"
-              ondblclick="handleRowDoubleClick('${item.id}')">
+                  <tr class="row"
+                      data-id="${item.id}"
+                      data-name="${item.name}"
+                      data-type="${item.typeId}"
+                      onclick="selectRow(event, '${item.id}')"
+                      ondblclick="handleRowDoubleClick('${item.id}')">
 
-            <td>
-              <div class="obj-name">
-                <span class="obj-icon">${icon}</span>
-                <span>${item.name}</span>
-              </div>
-            </td>
+                    <td>
+                      <div class="obj-name">
+                        <span class="obj-icon">${icon}</span>
+                        <span>${item.name}</span>
+                      </div>
+                    </td>
 
-            <td class="mono-dim">
-                ${item.typeId}
-            </td>
+                    <td class="mono-dim">
+                        ${item.typeId}
+                    </td>
 
-            <td class="mono-dim">
-                ${isFolder ? '—' : fmtBytes(contentStreamLength)}
-            </td>
+                    <td class="mono-dim">
+                        ${isFolder ? '—' : fmtBytes(contentStreamLength)}
+                    </td>
 
-            <td class="mono-dim">
-                ${fmtDate(lastModificationDate)}
-            </td>
+                    <td class="mono-dim">
+                        ${fmtDate(lastModificationDate)}
+                    </td>
 
-            <td>
-              <div class="row-actions">
-                ${!isFolder
+                    <td>
+                      <div class="row-actions">
+                        ${!isFolder
                         ? `<button
-                            class="btn-ghost btn-icon btn-sm"
-                            onclick="event.stopPropagation(); downloadFile('${item.id}', '${item.name}')"
-                            title="Download">
-                            &#8595;
-                       </button>`
+                                    class="btn-ghost btn-icon btn-sm"
+                                    onclick="event.stopPropagation(); downloadFile('${item.id}', '${item.name}')"
+                                    title="Download">
+                                    &#8595;
+                               </button>`
                         : `<span class="mono-dim" style="font-size:10.5px;">
-                            double-click to open
-                       </span>`
+                                    double-click to open
+                               </span>`
                     }
-              </div>
-            </td>
+                      </div>
+                    </td>
 
-          </tr>`;
+                  </tr>`;
             }).join('');
         }
         function handleRowDoubleClick(id) {
@@ -1235,21 +1715,285 @@
             }
         }
 
+        function isSystemProperty(propertyId) {
+            return propertyId && propertyId.startsWith('cmis:');
+        }
+
+        function isEditableCustomProperty(p) {
+            if (!p || isSystemProperty(p.id)) return false;
+            const updatability = (p.updatability || '').toLowerCase();
+            return updatability === 'readwrite' || updatability === 'oncreate';
+        }
+
+        function propertyInputType(propertyType) {
+            switch ((propertyType || '').toLowerCase()) {
+                case 'integer':
+                case 'decimal':
+                    return 'number';
+                case 'datetime':
+                    return 'datetime-local';
+                case 'boolean':
+                    return 'checkbox';
+                default:
+                    return 'text';
+            }
+        }
+
+        function renderDynamicTypeProperties(definition) {
+            selectedDocumentTypeDefinition = definition || null;
+            const host = document.getElementById('dynamicTypeProperties');
+
+            if (!definition) {
+                host.innerHTML = '';
+                return;
+            }
+
+            const props = (definition.propertyDefinitions || [])
+                .filter(isEditableCustomProperty);
+
+            if (!props.length) {
+                host.innerHTML = '';
+                return;
+            }
+
+            host.innerHTML = props.map(p => {
+                const inputType = propertyInputType(p.propertyType);
+                const requiredMark = p.required ? ' *' : '';
+                const requiredAttr = p.required ? 'required' : '';
+                const stepAttr = (p.propertyType || '').toLowerCase() === 'decimal'
+                    ? 'step="any"'
+                    : '';
+
+                if (inputType === 'checkbox') {
+                    return `
+                                <div style="margin-bottom:8px;">
+                                    <label>${p.localName || p.id}${requiredMark}</label>
+                                    <select class="dynamic-type-property"
+                                            data-property-id="${p.id}"
+                                            data-property-type="${p.propertyType}"
+                                            data-required="${p.required ? 'true' : 'false'}"
+                                            style="width:100%;">
+                                        <option value="">-- Select --</option>
+                                        <option value="true">true</option>
+                                        <option value="false">false</option>
+                                    </select>
+                                </div>`;
+                }
+
+                return `
+                            <div style="margin-bottom:8px;">
+                                <label>${p.localName || p.id}${requiredMark}</label>
+                                <input type="${inputType}"
+                                       class="dynamic-type-property"
+                                       data-property-id="${p.id}"
+                                       data-property-type="${p.propertyType}"
+                                       data-required="${p.required ? 'true' : 'false'}"
+                                       ${requiredAttr}
+                                       ${stepAttr}
+                                       placeholder="${p.id}"
+                                       style="width:100%;">
+                            </div>`;
+            }).join('');
+        }
+
+        async function loadDocumentTypeDefinition(typeId) {
+            const res = await fetch(
+                `/browser?cmisselector=typeDefinition&typeId=${encodeURIComponent(typeId)}`,
+                { headers: getAuthHeaders() }
+            );
+
+            if (!res.ok) {
+                await handleErrorResponse(res, 'Could not load document type definition');
+                renderDynamicTypeProperties(null);
+                return;
+            }
+
+            const definition = await res.json();
+            renderDynamicTypeProperties(definition);
+        }
+
+        async function onDocumentTypeChanged() {
+            const typeId = document.getElementById('documentTypeSelect').value || 'cmis:document';
+            await loadDocumentTypeDefinition(typeId);
+        }
+
+        async function collectDocumentTypes(parentTypeId, depth, visited) {
+            if (visited.has(parentTypeId)) return [];
+            visited.add(parentTypeId);
+
+            const res = await fetch(
+                `/browser?cmisselector=typeChildren&typeId=${encodeURIComponent(parentTypeId)}`,
+                { headers: getAuthHeaders() }
+            );
+
+            if (!res.ok) {
+                throw new Error(`Could not load child types for ${parentTypeId}.`);
+            }
+
+            const data = await res.json();
+            const children = data.types || [];
+            const result = [];
+
+            for (const child of children) {
+                if ((child.baseId || '').toLowerCase() !== 'cmis:document') {
+                    continue;
+                }
+
+                result.push({ ...child, depth });
+
+                const descendants = await collectDocumentTypes(
+                    child.id,
+                    depth + 1,
+                    visited
+                );
+
+                result.push(...descendants);
+            }
+
+            return result;
+        }
+
+        async function loadDocumentTypes() {
+            const select = document.getElementById('documentTypeSelect');
+
+            try {
+                const descendants = await collectDocumentTypes(
+                    'cmis:document',
+                    1,
+                    new Set()
+                );
+
+                documentTypes = [
+                    {
+                        id: 'cmis:document',
+                        displayName: 'Document',
+                        baseId: 'cmis:document',
+                        depth: 0
+                    },
+                    ...descendants
+                ];
+
+                select.innerHTML = documentTypes.map(t => {
+                    const prefix = t.depth > 0 ? `${'— '.repeat(t.depth)}` : '';
+                    return `<option value="${t.id}">${prefix}${t.displayName || t.id}</option>`;
+                }).join('');
+
+                select.value = 'cmis:document';
+                await loadDocumentTypeDefinition('cmis:document');
+            } catch (err) {
+                documentTypes = [{
+                    id: 'cmis:document',
+                    displayName: 'Document',
+                    baseId: 'cmis:document',
+                    depth: 0
+                }];
+
+                select.innerHTML = '<option value="cmis:document">Document</option>';
+                renderDynamicTypeProperties(null);
+                showToast('Type loading failed', err.message, 'error');
+            }
+        }
+
+        function buildCustomPropertiesPayload() {
+            const payload = {};
+            const fields = document.querySelectorAll('.dynamic-type-property');
+
+            for (const field of fields) {
+                const propertyId = field.dataset.propertyId;
+                const propertyType = (field.dataset.propertyType || 'string').toLowerCase();
+                const required = field.dataset.required === 'true';
+                const raw = field.value?.trim?.() ?? '';
+
+                if (!raw) {
+                    if (required) {
+                        throw new Error(`Required property "${propertyId}" is missing.`);
+                    }
+                    continue;
+                }
+
+                if (propertyType === 'integer') {
+                    const value = Number.parseInt(raw, 10);
+                    if (Number.isNaN(value)) {
+                        throw new Error(`"${propertyId}" must be an integer.`);
+                    }
+                    payload[propertyId] = value;
+                } else if (propertyType === 'decimal') {
+                    const value = Number(raw);
+                    if (Number.isNaN(value)) {
+                        throw new Error(`"${propertyId}" must be a number.`);
+                    }
+                    payload[propertyId] = value;
+                } else if (propertyType === 'boolean') {
+                    payload[propertyId] = raw === 'true';
+                } else if (propertyType === 'datetime') {
+                    const date = new Date(raw);
+                    if (Number.isNaN(date.getTime())) {
+                        throw new Error(`"${propertyId}" must be a valid date/time.`);
+                    }
+                    payload[propertyId] = date.toISOString();
+                } else {
+                    payload[propertyId] = raw;
+                }
+            }
+
+            return payload;
+        }
+
         async function uploadDocument() {
             const fileInput = document.getElementById('fileInput');
-            if (!fileInput.files.length) { showToast('No file selected', 'Choose a file to upload.', 'error'); return; }
+            if (!fileInput.files.length) {
+                showToast('No file selected', 'Choose a file to upload.', 'error');
+                return;
+            }
 
             const docName = document.getElementById('docName').value.trim();
+            const typeId = document.getElementById('documentTypeSelect').value || 'cmis:document';
+
+            let properties;
+            try {
+                properties = buildCustomPropertiesPayload();
+            } catch (err) {
+                showToast('Invalid properties', err.message, 'error');
+                return;
+            }
+
             const formData = new FormData();
             formData.append('cmisaction', 'createDocument');
+            formData.append('objectTypeId', typeId);
             formData.append('file', fileInput.files[0]);
-            if (docName) formData.append('name', docName);
 
-            const res = await fetch(`/browser/${repoId}/${currentFolderId}`, { method: 'POST', headers: getAuthHeaders(), body: formData });
+            if (docName) {
+                formData.append('name', docName);
+            }
+
+            if (Object.keys(properties).length > 0) {
+                formData.append('properties', JSON.stringify(properties));
+            }
+
+            const res = await fetch(
+                `/browser/${repoId}/${currentFolderId}`,
+                {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: formData
+                }
+            );
+
             if (res.ok) {
+                const selectedType = documentTypes.find(t => t.id === typeId);
                 document.getElementById('docName').value = '';
                 fileInput.value = '';
-                showToast('Document uploaded', '', 'success');
+
+                document.querySelectorAll('.dynamic-type-property').forEach(field => {
+                    field.value = '';
+                });
+
+                showToast(
+                    'Document uploaded',
+                    `Created as ${selectedType?.displayName || typeId}.`,
+                    'success'
+                );
+
                 refreshCurrent();
             } else {
                 await handleErrorResponse(res, 'Upload failed');
@@ -1362,35 +2106,820 @@
             }
         }
 
-        /* ---------- Types ---------- */
-        async function loadTypes() {
-            const res = await fetch('/browser?cmisselector=types', { headers: getAuthHeaders() });
-            if (!res.ok) return;
+        /* ---------- Type Management ---------- */
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        function humanizeIdentifier(value) {
+            if (!value) return '';
+            return value
+                .replace(/^custom:/i, '')
+                .replace(/[_-]+/g, ' ')
+                .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+                .replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        function toCamelIdentifier(value) {
+            const words = String(value || '')
+                .trim()
+                .replace(/^custom:/i, '')
+                .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+                .replace(/[^a-zA-Z0-9]+/g, ' ')
+                .trim()
+                .split(/\s+/)
+                .filter(Boolean);
+
+            if (!words.length) return '';
+
+            return words[0].toLowerCase() +
+                words.slice(1).map(w =>
+                    w.charAt(0).toUpperCase() +
+                    w.slice(1).toLowerCase()
+                ).join('');
+        }
+
+        function normalizeCustomId(value) {
+            const cleaned = toCamelIdentifier(value);
+            return cleaned ? `custom:${cleaned}` : '';
+        }
+
+        async function fetchTypeChildren(parentTypeId = null) {
+            const suffix = parentTypeId
+                ? `&typeId=${encodeURIComponent(parentTypeId)}`
+                : '';
+
+            const res = await fetch(
+                `/browser?cmisselector=typeChildren${suffix}`,
+                { headers: getAuthHeaders() }
+            );
+
+            if (!res.ok) {
+                await handleErrorResponse(res, 'Could not load repository types');
+                throw new Error('Could not load repository types.');
+            }
+
             const data = await res.json();
-            const list = document.getElementById('typesList');
-            const types = data.typeDefinitions || [];
-            list.innerHTML = types.map(t => `
-        <div class="type-item" onclick="loadTypeDefinition('${t.id}')">
-          <span>${t.displayName || t.id}</span>
-          <span class="badge-type">${t.id}</span>
-        </div>`).join('');
+            return data.types || [];
+        }
+
+        async function fetchTypeDefinition(typeId) {
+            const res = await fetch(
+                `/browser?cmisselector=typeDefinition&typeId=${encodeURIComponent(typeId)}`,
+                { headers: getAuthHeaders() }
+            );
+
+            if (!res.ok) {
+                await handleErrorResponse(res, 'Could not load type definition');
+                throw new Error(`Could not load type '${typeId}'.`);
+            }
+
+            return await res.json();
+        }
+
+        async function collectAllRepositoryTypes() {
+            const roots = await fetchTypeChildren();
+            const result = [];
+            const visited = new Set();
+
+            async function walk(type, depth) {
+                if (!type || visited.has(type.id)) return;
+                visited.add(type.id);
+
+                result.push({ ...type, depth });
+
+                const children = await fetchTypeChildren(type.id);
+                for (const child of children) {
+                    await walk(child, depth + 1);
+                }
+            }
+
+            for (const root of roots) {
+                await walk(root, 0);
+            }
+
+            return result;
+        }
+
+        function getTypeById(typeId) {
+            return allRepositoryTypes.find(t =>
+                t.id.toLowerCase() === String(typeId).toLowerCase()
+            );
+        }
+
+        function typeChildrenLocal(typeId) {
+            return allRepositoryTypes.filter(t =>
+                (t.parentTypeId || '').toLowerCase() === String(typeId).toLowerCase()
+            );
+        }
+
+        function descendantIdsLocal(typeId) {
+            const result = new Set();
+            const queue = [typeId];
+
+            while (queue.length) {
+                const current = queue.shift();
+                for (const child of typeChildrenLocal(current)) {
+                    if (!result.has(child.id)) {
+                        result.add(child.id);
+                        queue.push(child.id);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        function renderTypeSummary() {
+            const total = allRepositoryTypes.length;
+            const docs = allRepositoryTypes.filter(t =>
+                (t.baseId || '').toLowerCase() === 'cmis:document'
+            ).length;
+            const folders = allRepositoryTypes.filter(t =>
+                (t.baseId || '').toLowerCase() === 'cmis:folder'
+            ).length;
+
+            document.getElementById('typeSummary').innerHTML = `
+                    <div class="type-stat"><strong>${total}</strong><span>Total types</span></div>
+                    <div class="type-stat"><strong>${docs}</strong><span>Document types</span></div>
+                    <div class="type-stat"><strong>${folders}</strong><span>Folder types</span></div>
+                `;
+        }
+
+        function renderTypeTree() {
+            const host = document.getElementById('typeTree');
+
+            if (!allRepositoryTypes.length) {
+                host.innerHTML = '<div class="text-muted" style="padding:10px;">No repository types found.</div>';
+                return;
+            }
+
+            const roots = allRepositoryTypes.filter(t => !t.parentTypeId);
+
+            function renderNode(type, depth) {
+                const children = typeChildrenLocal(type.id);
+                const expanded = expandedTypeIds.has(type.id);
+                const isBase = type.id === 'cmis:document' || type.id === 'cmis:folder';
+                const canManage = hasRole('Admin') && !isBase;
+                const familyLabel = (type.baseId || '').toLowerCase() === 'cmis:folder'
+                    ? 'Folder'
+                    : 'Document';
+
+                let html = `
+                        <div class="type-tree-row">
+                            <div class="type-tree-main">
+                                <div class="type-tree-indent" style="width:${depth * 22}px;"></div>
+                                <button class="type-tree-toggle ${children.length ? '' : 'empty'}"
+                                        ${children.length ? `onclick="toggleTypeNode('${type.id}')"` : 'disabled'}>
+                                    ${children.length ? (expanded ? '▼' : '▶') : '•'}
+                                </button>
+
+                                <div class="type-tree-label" onclick="loadTypeDefinition('${type.id}')">
+                                    <div class="type-tree-name">${escapeHtml(type.displayName || type.id)}</div>
+                                    <div class="type-tree-meta">
+                                        <span class="type-tree-id">${escapeHtml(type.id)}</span>
+                                        <span class="chip">${familyLabel}</span>
+                                        ${isBase ? '<span class="chip">base</span>' : ''}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="type-tree-actions">
+                                <button class="btn-ghost btn-sm" onclick="loadTypeDefinition('${type.id}')">View</button>
+                                ${canManage ? `<button class="btn-ghost btn-sm" onclick="openEditTypeModal('${type.id}')">Edit</button>` : ''}
+                                ${canManage ? `<button class="btn-danger btn-sm" onclick="deleteTypeFromUi('${type.id}')">Delete</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+
+                if (expanded) {
+                    for (const child of children) {
+                        html += renderNode(child, depth + 1);
+                    }
+                }
+
+                return html;
+            }
+
+            host.innerHTML = roots.map(root => renderNode(root, 0)).join('');
+        }
+
+        function toggleTypeNode(typeId) {
+            if (expandedTypeIds.has(typeId)) {
+                expandedTypeIds.delete(typeId);
+            } else {
+                expandedTypeIds.add(typeId);
+            }
+
+            renderTypeTree();
+        }
+
+        async function refreshTypeManagement() {
+            try {
+                allRepositoryTypes = await collectAllRepositoryTypes();
+                renderTypeSummary();
+                renderTypeTree();
+                await loadDocumentTypes();
+            } catch {
+                // Errors are already shown through handleErrorResponse.
+            }
+        }
+
+        async function loadTypes() {
+            await refreshTypeManagement();
+        }
+
+        async function loadTypeChildren(typeId) {
+            expandedTypeIds.add(typeId);
+            await refreshTypeManagement();
+
+            const panel = document.getElementById('typeManagementPanel');
+            panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         async function loadTypeDefinition(typeId) {
-            const res = await fetch(`/browser?cmisselector=typeDefinition&typeId=${encodeURIComponent(typeId)}`, { headers: getAuthHeaders() });
-            if (!res.ok) { await handleErrorResponse(res, 'Could not load type'); return; }
-            const data = await res.json();
-            document.getElementById('typeModalTitle').innerText = data.displayName || data.id;
-            document.getElementById('typeModalDesc').innerText = data.description || data.id;
-            document.getElementById('typePropsBody').innerHTML = (data.propertyDefinitions || []).map(p => `
-        <tr>
-          <td>${p.id}</td>
-          <td>${p.propertyType}</td>
-          <td>${p.cardinality}</td>
-          <td>${p.updatability}</td>
-          <td>${p.required ? '<span class="chip req">required</span>' : '<span class="chip">optional</span>'}</td>
-        </tr>`).join('');
+            let data;
+
+            try {
+                data = await fetchTypeDefinition(typeId);
+            } catch {
+                return;
+            }
+
+            const isBase = typeId === 'cmis:document' || typeId === 'cmis:folder';
+
+            document.getElementById('typeModalTitle').innerText =
+                data.displayName || data.id;
+
+            document.getElementById('typeModalDesc').innerText =
+                data.description || 'No description.';
+
+            document.getElementById('typeDetailGrid').innerHTML = `
+                    <div class="k">Type ID</div>
+                    <div class="v">${escapeHtml(data.id)}</div>
+
+                    <div class="k">Base family</div>
+                    <div class="v">${escapeHtml(data.baseId)}</div>
+
+                    <div class="k">Direct parent</div>
+                    <div class="v">${escapeHtml(data.parentTypeId || 'Base CMIS type')}</div>
+                `;
+
+            document.getElementById('typePropsBody').innerHTML =
+                (data.propertyDefinitions || []).map(p => `
+                        <tr>
+                            <td>${escapeHtml(p.id)}</td>
+                            <td>${escapeHtml(p.propertyType)}</td>
+                            <td>${escapeHtml(p.cardinality)}</td>
+                            <td>${escapeHtml(p.updatability)}</td>
+                            <td>
+                                ${p.required
+                        ? '<span class="chip req">required</span>'
+                        : '<span class="chip">optional</span>'}
+                            </td>
+                        </tr>
+                    `).join('');
+
+            const editBtn = document.getElementById('typeModalEditBtn');
+            const deleteBtn = document.getElementById('typeModalDeleteBtn');
+
+            const canManage = hasRole('Admin') && !isBase;
+
+            editBtn.classList.toggle('hidden', !canManage);
+            deleteBtn.classList.toggle('hidden', !canManage);
+
+            editBtn.onclick = canManage
+                ? () => {
+                    closeModal('typeModal');
+                    openEditTypeModal(typeId);
+                }
+                : null;
+
+            deleteBtn.onclick = canManage
+                ? () => {
+                    closeModal('typeModal');
+                    deleteTypeFromUi(typeId);
+                }
+                : null;
+
             openModal('typeModal');
+        }
+
+        function populateParentSelect(selectedParentId = 'cmis:document', excludeTypeId = null) {
+            const select = document.getElementById('typeParentSelect');
+            const excluded = excludeTypeId
+                ? descendantIdsLocal(excludeTypeId)
+                : new Set();
+
+            if (excludeTypeId) {
+                excluded.add(excludeTypeId);
+            }
+
+            const options = allRepositoryTypes
+                .filter(t => !excluded.has(t.id))
+                .map(t => {
+                    const prefix = t.depth > 0 ? '— '.repeat(t.depth) : '';
+                    const selected = t.id === selectedParentId ? 'selected' : '';
+                    return `<option value="${escapeHtml(t.id)}" ${selected}>${prefix}${escapeHtml(t.displayName || t.id)}</option>`;
+                })
+                .join('');
+
+            select.innerHTML = options;
+
+            if (selectedParentId && [...select.options].some(o => o.value === selectedParentId)) {
+                select.value = selectedParentId;
+            }
+        }
+
+        function resetTypeBuilder() {
+            document.getElementById('typeNameInput').value = '';
+            document.getElementById('typeDescriptionInput').value = '';
+            document.getElementById('typeIdInput').value = '';
+            document.getElementById('generatedTypeId').textContent = 'custom:newType';
+            document.getElementById('typeIdAdvanced').classList.add('hidden');
+            document.getElementById('typePropertyBuilder').innerHTML = '';
+            typePropertyRowCounter = 0;
+            typeIdManuallyEdited = false;
+        }
+
+        async function openCreateTypeModal() {
+            if (!hasRole('Admin')) {
+                showToast('Admin only', 'Only an Admin can create repository types.', 'error');
+                return;
+            }
+
+            typeBuilderMode = 'create';
+            editingTypeId = null;
+            resetTypeBuilder();
+
+            document.getElementById('typeBuilderTitle').innerText = 'Create type';
+            document.getElementById('typeBuilderSubtitle').innerText =
+                'Create a new repository type. Technical identifiers are generated automatically.';
+            document.getElementById('saveTypeBtn').innerText = 'Create type';
+            document.getElementById('typeNameInput').disabled = false;
+
+            populateParentSelect('cmis:document');
+            syncGeneratedTypeId();
+            await onTypeParentChanged();
+
+            openModal('typeBuilderModal');
+        }
+
+        async function openEditTypeModal(typeId) {
+            if (!hasRole('Admin')) {
+                showToast('Admin only', 'Only an Admin can update repository types.', 'error');
+                return;
+            }
+
+            if (typeId === 'cmis:document' || typeId === 'cmis:folder') {
+                showToast('Protected type', 'Base CMIS types cannot be modified.', 'error');
+                return;
+            }
+
+            let definition;
+
+            try {
+                definition = await fetchTypeDefinition(typeId);
+            } catch {
+                return;
+            }
+
+            typeBuilderMode = 'edit';
+            editingTypeId = typeId;
+            resetTypeBuilder();
+
+            document.getElementById('typeBuilderTitle').innerText =
+                `Edit ${definition.displayName || typeId}`;
+            document.getElementById('typeBuilderSubtitle').innerText =
+                'Update business information, parent type, or properties owned by this type.';
+            document.getElementById('saveTypeBtn').innerText = 'Save changes';
+
+            document.getElementById('typeNameInput').value =
+                definition.displayName || humanizeIdentifier(typeId);
+            document.getElementById('typeDescriptionInput').value =
+                definition.description || '';
+
+            typeIdManuallyEdited = true;
+            document.getElementById('typeIdInput').value = typeId;
+            document.getElementById('generatedTypeId').textContent = typeId;
+            document.getElementById('typeNameInput').disabled = false;
+
+            populateParentSelect(definition.parentTypeId, typeId);
+            await onTypeParentChanged();
+
+            const parentDefinition = definition.parentTypeId
+                ? await fetchTypeDefinition(definition.parentTypeId)
+                : { propertyDefinitions: [] };
+
+            const inheritedIds = new Set(
+                (parentDefinition.propertyDefinitions || []).map(p => p.id.toLowerCase())
+            );
+
+            const ownProperties = (definition.propertyDefinitions || [])
+                .filter(p => !String(p.id).startsWith('cmis:'))
+                .filter(p => !inheritedIds.has(String(p.id).toLowerCase()));
+
+            for (const property of ownProperties) {
+                addTypePropertyRow({
+                    name: property.localName || humanizeIdentifier(property.id),
+                    propertyId: property.id,
+                    propertyType: property.propertyType,
+                    cardinality: property.cardinality,
+                    updatability: property.updatability,
+                    required: !!property.required
+                });
+            }
+
+            openModal('typeBuilderModal');
+        }
+
+        function syncGeneratedTypeId() {
+            if (typeBuilderMode === 'edit') return;
+
+            const name = document.getElementById('typeNameInput').value;
+            const generated = normalizeCustomId(name) || 'custom:newType';
+
+            if (!typeIdManuallyEdited) {
+                document.getElementById('typeIdInput').value = generated;
+                document.getElementById('generatedTypeId').textContent = generated;
+            }
+        }
+
+        function toggleTypeIdAdvanced() {
+            document.getElementById('typeIdAdvanced').classList.toggle('hidden');
+        }
+
+        function markTypeIdManual() {
+            typeIdManuallyEdited = true;
+
+            let value = document.getElementById('typeIdInput').value.trim();
+
+            if (value && !value.toLowerCase().startsWith('custom:')) {
+                value = normalizeCustomId(value);
+            }
+
+            document.getElementById('generatedTypeId').textContent =
+                value || 'custom:newType';
+        }
+
+        async function onTypeParentChanged() {
+            const parentTypeId = document.getElementById('typeParentSelect').value;
+            const host = document.getElementById('inheritedPropertiesPreview');
+
+            if (!parentTypeId) {
+                host.innerHTML = '<span class="text-muted">Choose a parent type.</span>';
+                return;
+            }
+
+            try {
+                const definition = await fetchTypeDefinition(parentTypeId);
+                const props = definition.propertyDefinitions || [];
+
+                if (!props.length) {
+                    host.innerHTML = '<span class="text-muted">This parent has no properties.</span>';
+                    return;
+                }
+
+                host.innerHTML = props.map(p =>
+                    `<span class="chip">${escapeHtml(p.localName || p.id)}</span>`
+                ).join('');
+            } catch {
+                host.innerHTML = '<span class="text-muted">Could not load inherited properties.</span>';
+            }
+        }
+
+        function addTypePropertyRow(initial = null) {
+            const rowId = ++typePropertyRowCounter;
+            const name = initial?.name || '';
+            const propertyId = initial?.propertyId || '';
+            const propertyType = initial?.propertyType || 'string';
+            const cardinality = initial?.cardinality || 'single';
+            const updatability = initial?.updatability || 'readwrite';
+            const required = initial?.required || false;
+
+            const card = document.createElement('div');
+            card.className = 'property-card';
+            card.dataset.rowId = rowId;
+
+            card.innerHTML = `
+                    <div class="property-card-top">
+                        <div>
+                            <label>Property name *</label>
+                            <input type="text"
+                                   class="prop-name"
+                                   value="${escapeHtml(name)}"
+                                   placeholder="e.g. Contract Number"
+                                   style="width:100%;"
+                                   oninput="syncPropertyId(${rowId})">
+
+                            <div class="property-id-preview" id="propertyIdPreview-${rowId}">
+                                ${escapeHtml(propertyId || 'custom:propertyName')}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label>Data type</label>
+                            <select class="prop-type" style="width:100%;">
+                                <option value="string" ${propertyType === 'string' ? 'selected' : ''}>Text</option>
+                                <option value="integer" ${propertyType === 'integer' ? 'selected' : ''}>Integer</option>
+                                <option value="datetime" ${propertyType === 'datetime' ? 'selected' : ''}>Date & time</option>
+                                <option value="boolean" ${propertyType === 'boolean' ? 'selected' : ''}>Yes / No</option>
+                            </select>
+                        </div>
+
+                        <label class="toggle-line" style="margin:0;">
+                            <input type="checkbox" class="prop-required" ${required ? 'checked' : ''}>
+                            Required
+                        </label>
+
+                        <button class="btn-danger btn-sm" type="button" onclick="removeTypePropertyRow(${rowId})">Remove</button>
+                    </div>
+
+                    <button class="advanced-link" type="button" onclick="togglePropertyAdvanced(${rowId})">
+                        Advanced options
+                    </button>
+
+                    <div class="property-card-advanced">
+                        <div class="form-grid-2">
+                            <div>
+                                <label>Property ID</label>
+                                <input type="text"
+                                       class="prop-id"
+                                       value="${escapeHtml(propertyId)}"
+                                       placeholder="custom:contractNumber"
+                                       style="width:100%;"
+                                       oninput="markPropertyIdManual(${rowId})">
+                                <div class="helper-text">The <code>custom:</code> prefix is added automatically if omitted.</div>
+                            </div>
+
+                            <div>
+                                <label>Local name</label>
+                                <input type="text"
+                                       class="prop-local-name"
+                                       value="${escapeHtml(initial?.localName || toCamelIdentifier(name))}"
+                                       placeholder="contractNumber"
+                                       style="width:100%;">
+                            </div>
+
+                            <div>
+                                <label>Cardinality</label>
+                                <select class="prop-cardinality" style="width:100%;">
+                                    <option value="single" ${cardinality === 'single' ? 'selected' : ''}>Single value</option>
+                                    <option value="multi" ${cardinality === 'multi' ? 'selected' : ''}>Multiple values</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label>Updatability</label>
+                                <select class="prop-updatability" style="width:100%;">
+                                    <option value="readwrite" ${updatability === 'readwrite' ? 'selected' : ''}>Read / Write</option>
+                                    <option value="oncreate" ${updatability === 'oncreate' ? 'selected' : ''}>On create only</option>
+                                    <option value="readonly" ${updatability === 'readonly' ? 'selected' : ''}>Read only</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+            card.dataset.idManual = propertyId ? 'true' : 'false';
+            document.getElementById('typePropertyBuilder').appendChild(card);
+
+            if (!propertyId) {
+                syncPropertyId(rowId);
+            }
+        }
+
+        function removeTypePropertyRow(rowId) {
+            document.querySelector(`.property-card[data-row-id="${rowId}"]`)?.remove();
+        }
+
+        function togglePropertyAdvanced(rowId) {
+            document.querySelector(`.property-card[data-row-id="${rowId}"]`)
+                ?.classList.toggle('advanced-open');
+        }
+
+        function markPropertyIdManual(rowId) {
+            const card = document.querySelector(`.property-card[data-row-id="${rowId}"]`);
+            if (!card) return;
+
+            card.dataset.idManual = 'true';
+
+            const input = card.querySelector('.prop-id');
+            let value = input.value.trim();
+
+            if (value && !value.toLowerCase().startsWith('custom:')) {
+                value = normalizeCustomId(value);
+            }
+
+            document.getElementById(`propertyIdPreview-${rowId}`).textContent =
+                value || 'custom:propertyName';
+        }
+
+        function syncPropertyId(rowId) {
+            const card = document.querySelector(`.property-card[data-row-id="${rowId}"]`);
+            if (!card) return;
+
+            const name = card.querySelector('.prop-name').value;
+            const generated = normalizeCustomId(name) || 'custom:propertyName';
+
+            if (card.dataset.idManual !== 'true') {
+                card.querySelector('.prop-id').value = generated;
+                card.querySelector('.prop-local-name').value = toCamelIdentifier(name);
+                document.getElementById(`propertyIdPreview-${rowId}`).textContent = generated;
+            }
+        }
+
+        function collectTypePropertyDefinitions() {
+            const result = [];
+            const cards = [...document.querySelectorAll('#typePropertyBuilder .property-card')];
+
+            for (const card of cards) {
+                const name = card.querySelector('.prop-name').value.trim();
+
+                if (!name) {
+                    throw new Error('Every property needs a name.');
+                }
+
+                let propertyId = card.querySelector('.prop-id').value.trim();
+
+                if (!propertyId) {
+                    propertyId = normalizeCustomId(name);
+                } else if (!propertyId.toLowerCase().startsWith('custom:')) {
+                    propertyId = normalizeCustomId(propertyId);
+                }
+
+                if (!propertyId || propertyId === 'custom:') {
+                    throw new Error(`Could not generate an ID for property "${name}".`);
+                }
+
+                const localName =
+                    card.querySelector('.prop-local-name').value.trim() ||
+                    toCamelIdentifier(name);
+
+                result.push({
+                    propertyId,
+                    localName,
+                    propertyType: card.querySelector('.prop-type').value,
+                    cardinality: card.querySelector('.prop-cardinality').value,
+                    updatability: card.querySelector('.prop-updatability').value,
+                    required: card.querySelector('.prop-required').checked
+                });
+            }
+
+            const seen = new Set();
+            for (const prop of result) {
+                const key = prop.propertyId.toLowerCase();
+                if (seen.has(key)) {
+                    throw new Error(`Property "${prop.propertyId}" is duplicated.`);
+                }
+                seen.add(key);
+            }
+
+            return result;
+        }
+
+        async function saveType() {
+            if (!hasRole('Admin')) {
+                showToast('Admin only', 'Only an Admin can manage repository types.', 'error');
+                return;
+            }
+
+            const name = document.getElementById('typeNameInput').value.trim();
+            const description = document.getElementById('typeDescriptionInput').value.trim();
+            const parentTypeId = document.getElementById('typeParentSelect').value;
+
+            if (!name) {
+                showToast('Missing name', 'Enter a type name.', 'error');
+                return;
+            }
+
+            if (!parentTypeId) {
+                showToast('Missing parent', 'Choose a parent type.', 'error');
+                return;
+            }
+
+            let typeId = editingTypeId;
+
+            if (typeBuilderMode === 'create') {
+                const rawId = document.getElementById('typeIdInput').value.trim();
+                typeId = rawId
+                    ? (rawId.toLowerCase().startsWith('custom:') ? rawId : normalizeCustomId(rawId))
+                    : normalizeCustomId(name);
+            }
+
+            let propertyDefinitions;
+
+            try {
+                propertyDefinitions = collectTypePropertyDefinitions();
+            } catch (err) {
+                showToast('Invalid property', err.message, 'error');
+                return;
+            }
+
+            const payload = typeBuilderMode === 'create'
+                ? {
+                    id: typeId,
+                    displayName: name,
+                    description,
+                    parentTypeId,
+                    propertyDefinitions
+                }
+                : {
+                    displayName: name,
+                    description,
+                    parentTypeId,
+                    propertyDefinitions
+                };
+
+            const formData = new FormData();
+            formData.append(
+                'cmisaction',
+                typeBuilderMode === 'create' ? 'createType' : 'updateType'
+            );
+            formData.append('type', JSON.stringify(payload));
+
+            if (typeBuilderMode === 'edit') {
+                formData.append('typeId', editingTypeId);
+            }
+
+            const saveBtn = document.getElementById('saveTypeBtn');
+            const oldText = saveBtn.innerText;
+            saveBtn.disabled = true;
+            saveBtn.innerText = typeBuilderMode === 'create' ? 'Creating…' : 'Saving…';
+
+            try {
+                const res = await fetch('/browser', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: formData
+                });
+
+                if (!res.ok) {
+                    await handleErrorResponse(
+                        res,
+                        typeBuilderMode === 'create'
+                            ? 'Could not create type'
+                            : 'Could not update type'
+                    );
+                    return;
+                }
+
+                closeModal('typeBuilderModal');
+
+                showToast(
+                    typeBuilderMode === 'create' ? 'Type created' : 'Type updated',
+                    `${name} ${typeBuilderMode === 'create' ? 'is now available in the repository.' : 'was updated successfully.'}`,
+                    'success'
+                );
+
+                expandedTypeIds.add(parentTypeId);
+                await refreshTypeManagement();
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerText = oldText;
+            }
+        }
+
+        async function deleteTypeFromUi(typeId) {
+            if (!hasRole('Admin')) {
+                showToast('Admin only', 'Only an Admin can delete repository types.', 'error');
+                return;
+            }
+
+            const type = getTypeById(typeId);
+            const name = type?.displayName || typeId;
+
+            if (!confirm(
+                `Delete type "${name}"?\n\n` +
+                `Deletion is blocked automatically if child types or repository objects still depend on it.`
+            )) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('cmisaction', 'deleteType');
+            formData.append('typeId', typeId);
+
+            const res = await fetch('/browser', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: formData
+            });
+
+            if (!res.ok) {
+                await handleErrorResponse(res, 'Could not delete type');
+                return;
+            }
+
+            showToast('Type deleted', `${name} was removed from the repository.`, 'success');
+            expandedTypeIds.delete(typeId);
+            await refreshTypeManagement();
         }
 
         /* ---------- Query console ---------- */
@@ -1429,12 +2958,12 @@
             document.getElementById('queryResults').innerHTML = results.map(item => {
                 const isFolder = item.typeId === 'cmis:folder';
                 return `
-          <tr>
-            <td><div class="obj-name"><span class="obj-icon">${isFolder ? '&#128193;' : '&#128196;'}</span>${item.name}</div></td>
-            <td class="mono-dim">${item.typeId}</td>
-            <td class="mono-dim">${item.path}</td>
-            <td>${!isFolder ? `<button class="btn-ghost btn-icon btn-sm" onclick="downloadFile('${item.id}', '${item.name}')">&#8595;</button>` : ''}</td>
-          </tr>`;
+                  <tr>
+                    <td><div class="obj-name"><span class="obj-icon">${isFolder ? '&#128193;' : '&#128196;'}</span>${item.name}</div></td>
+                    <td class="mono-dim">${item.typeId}</td>
+                    <td class="mono-dim">${item.path}</td>
+                    <td>${!isFolder ? `<button class="btn-ghost btn-icon btn-sm" onclick="downloadFile('${item.id}', '${item.name}')">&#8595;</button>` : ''}</td>
+                  </tr>`;
             }).join('');
 
             metaEl.classList.remove('hidden');

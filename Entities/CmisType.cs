@@ -4,9 +4,22 @@
 public class CmisType
 {
     public string Id { get; set; } = string.Empty;
+
+    // Always identifies the CMIS base type:
+    // cmis:document or cmis:folder
     public string BaseId { get; set; } = string.Empty;
+
     public string DisplayName { get; set; } = string.Empty;
+
     public string Description { get; set; } = string.Empty;
+
+    // null only for root/base CMIS types
+    public string? ParentTypeId { get; set; }
+
+    public CmisType? ParentType { get; set; }
+
+    public ICollection<CmisType> ChildTypes { get; set; }
+        = new List<CmisType>();
 }
 
 public class CmisPropertyDefinition
@@ -28,9 +41,12 @@ public class CmisTypeDefinition
 {
     public string Id { get; set; } = string.Empty;
     public string BaseId { get; set; } = string.Empty;
+    public string? ParentTypeId { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public List<CmisPropertyDefinition> PropertyDefinitions { get; set; } = new();
+
+    public List<CmisPropertyDefinition> PropertyDefinitions { get; set; }
+        = new();
 
     public static List<CmisPropertyDefinition> BaseProperties() => new()
     {
@@ -61,7 +77,10 @@ public class CmisTypeDefinition
     /// </summary>
     public static CmisTypeDefinition FromCmisType(CmisType type)
     {
-        var props = string.Equals(type.Id, "cmis:folder", StringComparison.OrdinalIgnoreCase)
+        var props = string.Equals(
+            type.BaseId,
+            "cmis:folder",
+            StringComparison.OrdinalIgnoreCase)
             ? BaseProperties()
             : DocumentProperties();
 
@@ -69,6 +88,7 @@ public class CmisTypeDefinition
         {
             Id = type.Id,
             BaseId = type.BaseId,
+            ParentTypeId = type.ParentTypeId,
             DisplayName = type.DisplayName,
             Description = type.Description,
             PropertyDefinitions = props

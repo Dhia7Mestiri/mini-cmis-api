@@ -1,4 +1,5 @@
-﻿using CMIS_IyaSoft.Entities;
+﻿using System.Text.Json;
+using CMIS_IyaSoft.Entities;
 using CMIS_IyaSoft.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,10 +27,28 @@ public class CmisController : ControllerBase
         [FromQuery] int maxItems = 100,
         [FromQuery] int skipCount = 0)
     {
-        if (string.Equals(cmisselector, "types", StringComparison.OrdinalIgnoreCase))
+        if (
+            string.Equals(cmisselector, "typeChildren", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(cmisselector, "types", StringComparison.OrdinalIgnoreCase)
+        )
         {
-            var types = await _cmisService.GetTypesAsync();
-            return Ok(new { typeDefinitions = types });
+            try
+            {
+                var types = await _cmisService.GetTypeChildrenAsync(typeId);
+
+                return Ok(new
+                {
+                    types
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    exception = "objectNotFound",
+                    message = ex.Message
+                });
+            }
         }
 
         if (string.Equals(cmisselector, "typeDefinition", StringComparison.OrdinalIgnoreCase))
@@ -83,6 +102,7 @@ public class CmisController : ControllerBase
 
         return Ok(repoInfo);
     }
+
 
     // GET /browser/{repositoryId}/{objectId}
     // cmisselector=children|content|parents|object (default)
@@ -139,10 +159,11 @@ public class CmisController : ControllerBase
         [FromRoute] string repositoryId,
         [FromRoute] string objectId,
         [FromForm] string cmisaction,
-        [FromForm] string? name,
-        [FromForm] string? targetFolderId,
-        [FromForm] string? properties,
-        IFormFile? file)
+[FromForm] string? name,
+[FromForm] string? targetFolderId,
+[FromForm] string? objectTypeId,
+[FromForm] string? properties,
+IFormFile? file)
     {
         if (string.Equals(cmisaction, "delete", StringComparison.OrdinalIgnoreCase))
         {
@@ -224,8 +245,18 @@ public class CmisController : ControllerBase
             await file.CopyToAsync(memoryStream);
             var fileBytes = memoryStream.ToArray();
 
+            var requestedTypeId =
+                string.IsNullOrWhiteSpace(objectTypeId)
+                    ? "cmis:document"
+                    : objectTypeId;
+
             var createdDoc = await _cmisService.CreateDocumentAsync(
-                objectId, docName, file.ContentType ?? "application/octet-stream", fileBytes, properties);
+                objectId,
+                docName,
+                file.ContentType ?? "application/octet-stream",
+                fileBytes,
+                requestedTypeId,
+                properties);
 
             return CreatedAtAction(nameof(GetObject), new { repositoryId, objectId = createdDoc.Id }, createdDoc);
         }
@@ -256,26 +287,98 @@ public class CmisController : ControllerBase
     public async Task<IActionResult> PostRepository(
         [FromForm] string cmisaction,
         [FromForm] string? statement,
+        [FromForm] string? typeId,
+        [FromForm] string? type,
         [FromForm] int maxItems = 100,
         [FromForm] int skipCount = 0)
     {
-        if (!string.Equals(cmisaction, "query", StringComparison.OrdinalIgnoreCase))
+        try
         {
+            if (string.Equals(cmisaction, "query", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(statement))
+                {
+                    return BadRequest(new { exception = "invalidArgument", message = "'statement' form field is required for query action." });
+                }
+
+                var (results, numItems, hasMoreItems) =
+                    await _cmisService.ExecuteQueryAsync(statement, maxItems, skipCount);
+
+                return Ok(new { results, numItems, hasMoreItems });
+            }
+
+            if (string.Equals(cmisaction, "createType", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!User.IsInRole("Admin")) return Forbid();
+                if (string.IsNullOrWhiteSpace(type))
+                    return BadRequest(new { exception = "invalidArgument", message = "'type' form field is required and must contain a JSON type definition." });
+
+                CreateCmisTypeRequest? request;
+                try
+                {
+                    request = JsonSerializer.Deserialize<CreateCmisTypeRequest>(
+                        type,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                }
+                catch (JsonException ex)
+                {
+                    return BadRequest(new { exception = "invalidArgument", message = $"Invalid type JSON: {ex.Message}" });
+                }
+
+                if (request == null)
+                    return BadRequest(new { exception = "invalidArgument", message = "Type definition could not be parsed." });
+
+                var created = await _cmisService.CreateTypeAsync(request);
+                return StatusCode(StatusCodes.Status201Created, created);
+            }
+
+            if (string.Equals(cmisaction, "updateType", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!User.IsInRole("Admin")) return Forbid();
+                if (string.IsNullOrWhiteSpace(typeId))
+                    return BadRequest(new { exception = "invalidArgument", message = "'typeId' form field is required for updateType." });
+                if (string.IsNullOrWhiteSpace(type))
+                    return BadRequest(new { exception = "invalidArgument", message = "'type' form field is required and must contain a JSON update definition." });
+
+                UpdateCmisTypeRequest? request;
+                try
+                {
+                    request = JsonSerializer.Deserialize<UpdateCmisTypeRequest>(
+                        type,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                }
+                catch (JsonException ex)
+                {
+                    return BadRequest(new { exception = "invalidArgument", message = $"Invalid type JSON: {ex.Message}" });
+                }
+
+                if (request == null)
+                    return BadRequest(new { exception = "invalidArgument", message = "Type update definition could not be parsed." });
+
+                var updated = await _cmisService.UpdateTypeAsync(typeId, request);
+                return Ok(updated);
+            }
+
+            if (string.Equals(cmisaction, "deleteType", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!User.IsInRole("Admin")) return Forbid();
+                if (string.IsNullOrWhiteSpace(typeId))
+                    return BadRequest(new { exception = "invalidArgument", message = "'typeId' form field is required for deleteType." });
+
+                await _cmisService.DeleteTypeAsync(typeId);
+                return NoContent();
+            }
+
             return BadRequest(new { exception = "notSupported", message = $"Unsupported cmisaction '{cmisaction}' on repository URL." });
         }
-
-        if (string.IsNullOrWhiteSpace(statement))
+        catch (KeyNotFoundException ex)
         {
-            return BadRequest(new { exception = "invalidArgument", message = "'statement' form field is required for query action." });
+            return NotFound(new { exception = "objectNotFound", message = ex.Message });
         }
-
-        var (results, numItems, hasMoreItems) = await _cmisService.ExecuteQueryAsync(statement, maxItems, skipCount);
-
-        return Ok(new
+        catch (InvalidOperationException ex)
         {
-            results,
-            numItems,
-            hasMoreItems
-        });
+            return BadRequest(new { exception = "constraint", message = ex.Message });
+        }
     }
+
 }
